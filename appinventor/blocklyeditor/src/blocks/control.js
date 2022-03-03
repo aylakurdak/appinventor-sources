@@ -42,7 +42,8 @@ Blockly.Blocks['controls_if'] = {
   category: 'Control',
   helpUrl: Blockly.Msg.LANG_CONTROLS_IF_HELPURL,
   init: function () {
-    this.setColour(Blockly.CONTROL_CATEGORY_HUE);
+    //this.setColour(Blockly.CONTROL_CATEGORY_HUE);
+    this.setColour('#D12905'); // Red if block
     this.appendValueInput('IF0')
         .setCheck(Blockly.Blocks.Utilities.YailTypeToBlocklyType("boolean", Blockly.Blocks.Utilities.INPUT))
         .appendField(Blockly.Msg.LANG_CONTROLS_IF_MSG_IF);
@@ -227,6 +228,30 @@ Blockly.Blocks['controls_if_else'] = {
     this.setTooltip(Blockly.Msg.LANG_CONTROLS_IF_ELSE_TOOLTIP);
     this.contextMenu = false;
   }
+};
+
+Blockly.Blocks['controls_if3'] = {
+  // If3.
+  category: 'Control',
+  init: function () {
+    this.setColour(Blockly.CONTROL_CATEGORY_HUE);
+    this.appendValueInput('TEST')
+        .setCheck(Blockly.Blocks.Utilities.YailTypeToBlocklyType("number", Blockly.Blocks.Utilities.INPUT))
+        .appendField("if3")
+        .setAlign(Blockly.ALIGN_RIGHT);
+    this.appendStatementInput('POSDO')
+        .appendField("when positive")
+        .setAlign(Blockly.ALIGN_RIGHT);
+    this.appendStatementInput('ZERODO')
+        .appendField("when zero")
+        .setAlign(Blockly.ALIGN_RIGHT);
+    this.appendStatementInput('NEGDO')
+        .appendField("when negative")
+        .setAlign(Blockly.ALIGN_RIGHT);
+    this.setPreviousStatement(true);
+    this.setNextStatement(true);
+  },
+  typeblock: [{translatedName: "if3"}] // what does this line do?
 };
 
 Blockly.Blocks['controls_forRange'] = {
@@ -594,6 +619,30 @@ Blockly.Blocks['controls_choose'] = {
     Blockly.Msg.LANG_CONTROLS_CHOOSE_INPUT_THEN_RETURN + ' ' +
     Blockly.Msg.LANG_CONTROLS_CHOOSE_INPUT_ELSE_RETURN
   }]
+};
+
+Blockly.Blocks['controls_choose3'] = {
+  // Choose3.
+  category: 'Control',
+  init: function () {
+    this.setColour(Blockly.CONTROL_CATEGORY_HUE);
+    this.setOutput(true, null);
+    this.appendValueInput('TEST')
+        .setCheck(Blockly.Blocks.Utilities.YailTypeToBlocklyType("number", Blockly.Blocks.Utilities.INPUT))
+        .appendField("choose3")
+        .appendField("which")
+        .setAlign(Blockly.ALIGN_RIGHT);
+    this.appendValueInput('POSRETURN')
+        .appendField("when positive")
+        .setAlign(Blockly.ALIGN_RIGHT);
+    this.appendValueInput('ZERORETURN')
+        .appendField("when zero")
+        .setAlign(Blockly.ALIGN_RIGHT);
+    this.appendValueInput('NEGRETURN')
+        .appendField("when negative")
+        .setAlign(Blockly.ALIGN_RIGHT);
+  },
+  typeblock: [{translatedName: "choose3"}] // what does this line do?
 };
 
 // [lyn, 10/10/13] This used to be in the control drawer as well as the procedure drawer
