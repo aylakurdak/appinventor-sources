@@ -133,6 +133,7 @@
     './src/blocks/components.js',
     './src/blocks/dictionaries.js',
     './src/blocks/helpers.js',
+    './src/blocks/code.js',
 
     //generator files
     "./src/generators/yail.js",
