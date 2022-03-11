@@ -239,6 +239,15 @@ Blockly.BlocklyEditor.addClearDoItOption = function(myBlock, options) {
   options.push(clearDoitOption);
 };
 
+Blockly.BlocklyEditor.addConvertToVenbraceOption = function(myBlock, options) {
+  var convertToVenbrace = {enabled: true};
+  convertToVenbrace.text = "Convert to Venbrace";
+  convertToVenbrace.callback = function() {
+    myBlock.dispose(true, false)
+  };
+  options.push(convertToVenbrace)
+};
+
 /**
  * Adds extra context menu options to all blocks. Current options include:
  *   - Png Export
@@ -252,6 +261,7 @@ Blockly.Block.prototype.customContextMenu = function(options) {
   Blockly.BlocklyEditor.addGenerateYailOption(this, options);
   Blockly.BlocklyEditor.addDoItOption(this, options);
   Blockly.BlocklyEditor.addClearDoItOption(this, options);
+  Blockly.BlocklyEditor.addConvertToVenbraceOption(this, options)
 
   if(this.procCustomContextMenu){
     this.procCustomContextMenu(options);
