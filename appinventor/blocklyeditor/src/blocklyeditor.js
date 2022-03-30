@@ -243,7 +243,9 @@ Blockly.BlocklyEditor.addConvertToVenbraceOption = function(myBlock, options) {
   var convertToVenbrace = {enabled: true};
   convertToVenbrace.text = "Convert to Venbrace";
   convertToVenbrace.callback = function() {
-    myBlock.dispose(true, false)
+    var codeBlock = Blockly.BlocksToTextConverter.blockToText(myBlock);
+    Blockly.BlocklyEditor.repositionNewlyGeneratedBlock(myBlock,codeBlock);
+    myBlock.dispose(true, false);
   };
   options.push(convertToVenbrace)
 };
@@ -625,3 +627,46 @@ top.document.addEventListener('mousedown', function(e) {
     Blockly.hideChaff();
   }
 }, false);
+
+
+Blockly.BlocklyEditor.repositionNewlyGeneratedBlock = function(oldBlock, newBlock){
+  //variable which indicates whether or not we need to reposition the newly generated blocks
+  var reposition = true;
+  /*
+  if(oldBlock.outputConnection){ //expression block
+    if(oldBlock.outputConnection.targetConnection){
+      //no need to reposition if the block is plugged into another block
+      //(this if statement will handle putting the block in the correct place)
+      reposition = false;
+      var otherBlockConnection = oldBlock.outputConnection.targetConnection;
+      var newConnection = newBlock.outputConnection;
+      oldBlock.unplug(true,true);
+      otherBlockConnection.connect(newConnection);
+    }
+  } else if(oldBlock.previousConnection){ //statement block
+    if(oldBlock.previousConnection.targetConnection){
+      //no need to reposition if the block is connected to a previous block
+      //(this if statement will handle putting the block in the correct place)
+      reposition = false;
+      var prevBlockConnection = oldBlock.previousConnection.targetConnection;
+      var newConnection = newBlock.previousConnection;
+      oldBlock.unplug(false,false);
+      prevBlockConnection.connect(newConnection);
+    }
+    if(oldBlock.nextConnection.targetConnection){
+      //if this block only has a next block but not a previous block, we do need to reposition
+      //if this block did have a previous block, we don't need to reposition, but the above if
+      //statement will take care of that, so we don't need to change the value of reposition here
+      var nextBlockConnection = oldBlock.nextConnection.targetConnection;
+      var newConnection = newBlock.nextConnection;
+      var nextBlock = oldBlock.nextConnection.targetBlock();
+      nextBlock.unplug(false, false);
+      newConnection.connect(nextBlockConnection);
+    }
+  } //otherwise it's a top level block, and the code below will handle it
+  */
+  if(reposition){
+    var xy = oldBlock.getRelativeToSurfaceXY();
+    newBlock.moveBy(xy.x, xy.y);
+  }
+};

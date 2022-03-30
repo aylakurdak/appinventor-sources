@@ -135,6 +135,9 @@
     './src/blocks/helpers.js',
     './src/blocks/code.js',
 
+    // Venbrace
+    "./code-utils/blocks-to-text-converter.js",
+
     //generator files
     "./src/generators/yail.js",
     "./src/generators/yail/componentblock.js",
