@@ -152,13 +152,220 @@ Blockly.BlocksToTextConverter.type = function(element){
 
 
 Blockly.BlocksToTextConverter.translateExpressionBlock = function(element){
-	Blockly.BlocksToTextConverter.venbraceText += '{}';
+    var elementType = element.getAttribute("type");
+    Blockly.BlocksToTextConverter.venbraceText += '(';
+    Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
+	Blockly.BlocksToTextConverter.venbraceText += ')';
+};
+
+// handles potentially empty sockets
+Blockly.BlocksToTextConverter.translateChildExpression = function(item) {
+    if (! item) {
+      Blockly.BlocksToTextConverter.venbraceText += '()';
+    } else {
+      Blockly.BlocksToTextConverter.translateExpressionBlock(item.firstElementChild);
+    }
 };
 
 Blockly.BlocksToTextConverter.translateStatementBlock = function(element){
-	Blockly.BlocksToTextConverter.venbraceText += '[]';
+	Blockly.BlocksToTextConverter.venbraceText += '{}';
 };
 
 Blockly.BlocksToTextConverter.translateDeclarationBlock = function(element){
-	Blockly.BlocksToTextConverter.venbraceText += '()';
+	Blockly.BlocksToTextConverter.venbraceText += '[]';
+};
+
+
+/************************************* EXPRESSIONS ****************************************/
+
+/**** MATH EXPRESIONS ****/
+
+Blockly.BlocksToTextConverter.translate_math_number = function(element){
+	Blockly.BlocksToTextConverter.venbraceText += element.firstElementChild.innerHTML;
+};
+
+Blockly.BlocksToTextConverter.translate_math_compare = function(element){
+	var children = element.children;
+	var aItem = children.namedItem("A");
+	var bItem = children.namedItem("B");
+	var op = children.namedItem("OP").innerHTML;
+	
+	if(op === "EQ"){
+		op = '=';
+	} else if(op === "NEQ"){
+		op = '!=';
+	} else if(op === "LT"){
+		op = '<';
+	} else if(op === "GT"){
+		op = '>';
+	} else if(op === "LTE"){
+		op = '<=';
+	} else {
+		op = '>=';
+	}
+
+	Blockly.BlocksToTextConverter.translateChildExpression(aItem);
+	Blockly.BlocksToTextConverter.venbraceText += ' ' + op + ' ';
+	Blockly.BlocksToTextConverter.translateChildExpression(bItem);
+};
+
+Blockly.BlocksToTextConverter.translate_math_add = function(element){
+	var children = element.children;
+	
+	var mutationBlock;
+	for(var i=0; i<children.length; i++){
+		var child = children.item(i);
+		if(child.nodeName.toLowerCase() === "mutation"){
+			mutationBlock = child;
+		}
+	}
+
+	var numItems = (!!mutationBlock) ? parseInt(mutationBlock.getAttribute("items")) : 0;
+	
+	var valueItem = children.namedItem("NUM0");
+	Blockly.BlocksToTextConverter.translateChildExpression(valueItem);
+
+	for (var i = 1; i<numItems; i++){
+		valueItem = children.namedItem("NUM"+i);
+
+		Blockly.BlocksToTextConverter.venbraceText += ' + ';
+		Blockly.BlocksToTextConverter.translateChildExpression(valueItem);
+	}
+};
+
+
+Blockly.BlocksToTextConverter.translate_math_multiply = function (element) {
+	var children = element.children;
+	
+	var mutationBlock;
+	for(var i=0; i<children.length; i++){
+		var child = children.item(i);
+		if(child.nodeName.toLowerCase() === "mutation"){
+			mutationBlock = child;
+		}
+	}
+
+	var numItems = (!!mutationBlock) ? parseInt(mutationBlock.getAttribute("items")) : 0;
+	
+	var valueItem = children.namedItem("NUM0");
+	Blockly.BlocksToTextConverter.translateChildExpression(valueItem);
+
+	for (var i = 1; i<numItems; i++){
+		valueItem = children.namedItem("NUM"+i);
+
+		Blockly.BlocksToTextConverter.venbraceText += ' * ';
+		Blockly.BlocksToTextConverter.translateChildExpression(valueItem);
+	}
+};
+
+Blockly.BlocksToTextConverter.translate_math_subtract = function(element) {
+	var children = element.children;
+	var aItem = children.namedItem("A");
+	var bItem = children.namedItem("B");
+
+	Blockly.BlocksToTextConverter.translateChildExpression(aItem);
+	Blockly.BlocksToTextConverter.venbraceText += ' - ';
+	Blockly.BlocksToTextConverter.translateChildExpression(bItem);
+};
+
+
+Blockly.BlocksToTextConverter.translate_math_division = function (element) {
+	var children = element.children;
+	var aItem = children.namedItem("A");
+	var bItem = children.namedItem("B");
+
+	Blockly.BlocksToTextConverter.translateChildExpression(aItem);
+	Blockly.BlocksToTextConverter.venbraceText += ' / ';
+	Blockly.BlocksToTextConverter.translateChildExpression(bItem);
+};
+
+Blockly.BlocksToTextConverter.translate_math_power = function (element) {
+	var children = element.children;
+	var aItem = children.namedItem("A");
+	var bItem = children.namedItem("B");
+
+	Blockly.BlocksToTextConverter.translateChildExpression(aItem);
+	Blockly.BlocksToTextConverter.venbraceText += ' ^ ';
+	Blockly.BlocksToTextConverter.translateChildExpression(bItem);
+};
+
+Blockly.BlocksToTextConverter.translate_math_divide = function(element){
+	var children = element.children;
+	var dividendItem = children.namedItem("DIVIDEND");
+	var divisorItem = children.namedItem("DIVISOR");
+	
+    //mod, remainder, quotient - is this the best syntax
+	var op = children.namedItem("OP").innerHTML.toLowerCase() + '_of';
+
+	Blockly.BlocksToTextConverter.venbraceText += op + ' ';
+	Blockly.BlocksToTextConverter.translateChildExpression(dividendItem);
+	Blockly.BlocksToTextConverter.venbraceText += ' / ';
+	Blockly.BlocksToTextConverter.translateChildExpression(divisorItem);
+};
+
+Blockly.BlocksToTextConverter.translate_math_on_list = function(element){
+    var children = element.children;
+
+    var op = children.namedItem("OP").innerHTML.toLowerCase();
+    Blockly.BlocksToTextConverter.venbraceText += op + "(";
+
+    var mutationBlock;
+	for(var i = 0; i < children.length; i++){
+		var child = children.item(i);
+		if(child.nodeName.toLowerCase() === "mutation"){
+			mutationBlock = child;
+		}
+	}
+
+	var numItems = (!!mutationBlock) ? parseInt(mutationBlock.getAttribute("items")) : 0;
+	
+	var valueItem = children.namedItem("NUM0");
+	Blockly.BlocksToTextConverter.translateChildExpression(valueItem);
+
+	for (var i = 1; i<numItems; i++){
+		valueItem = children.namedItem("NUM"+i);
+
+		Blockly.BlocksToTextConverter.venbraceText += ', ';
+		Blockly.BlocksToTextConverter.translateChildExpression(valueItem);
+	}
+
+    Blockly.BlocksToTextConverter.venbraceText += ")"; //closing the list, is this bad form?
+    
+};
+
+Blockly.BlocksToTextConverter.translate_math_single = function(element){
+	var children = element.children;
+	var exprItem = children.namedItem("NUM");
+	
+	var op = children.namedItem("OP").innerHTML.toLowerCase();
+	if (op === "root") {
+		op = 'sqrt';
+	} else if(op === "ln"){
+		op = 'log';
+	} else if(op === "exp"){
+		op = 'e^';
+	} //no else case, op should remain the same for abs, round, ceiling, and floor
+
+	Blockly.BlocksToTextConverter.venbraceText += op + ' ';
+	Blockly.BlocksToTextConverter.translateChildExpression(exprItem);
+};
+
+Blockly.BlocksToTextConverter.translate_math_abs = function(element){
+	Blockly.BlocksToTextConverter.translate_math_single(element);
+};
+
+Blockly.BlocksToTextConverter.translate_math_neg = function(element){
+	Blockly.BlocksToTextConverter.translate_math_single(element);
+};
+
+Blockly.BlocksToTextConverter.translate_math_round = function(element){
+	Blockly.BlocksToTextConverter.translate_math_single(element);
+};
+
+Blockly.BlocksToTextConverter.translate_math_ceiling = function(element){
+	Blockly.BlocksToTextConverter.translate_math_single(element);
+};
+
+Blockly.BlocksToTextConverter.translate_math_floor = function(element){
+	Blockly.BlocksToTextConverter.translate_math_single(element);
 };

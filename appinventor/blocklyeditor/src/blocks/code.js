@@ -11,7 +11,7 @@ Blockly.Blocks["code_decl"] = {
         this.setColour(Blockly.CODE_CATEGORY_HUE);
         this.appendDummyInput()
             .appendField("code decl")
-            .appendField(new Blockly.FieldTextInput('()'), 'CODE');
+            .appendField(new Blockly.FieldTextInput('[]'), 'CODE');
     },
     typeblock: [{translatedName: "code declaration"}]
 }
@@ -22,7 +22,7 @@ Blockly.Blocks["code_stmt"] = {
         this.setColour(Blockly.CODE_CATEGORY_HUE);
         this.appendDummyInput()
             .appendField("code stmt")
-            .appendField(new Blockly.FieldTextInput('[]'), 'CODE');
+            .appendField(new Blockly.FieldTextInput('{}'), 'CODE');
         this.setPreviousStatement(true);
         this.setNextStatement(true);
     },
@@ -35,7 +35,7 @@ Blockly.Blocks["code_expr"] = {
         this.setColour(Blockly.CODE_CATEGORY_HUE);
         this.appendDummyInput()
             .appendField("code expr")
-            .appendField(new Blockly.FieldTextInput('{}'), 'CODE');
+            .appendField(new Blockly.FieldTextInput('()'), 'CODE');
         this.setOutput(true, null);
     },
     typeblock: [{translatedName: "code expression"}]
