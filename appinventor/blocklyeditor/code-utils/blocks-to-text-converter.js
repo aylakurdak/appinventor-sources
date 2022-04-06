@@ -1,6 +1,6 @@
 Blockly.BlocksToTextConverter = {};
 
-//is there a way to check if it is an expr, stmt, or decl by checking the connectors?
+// remember to add blocks to these lists!
 Blockly.BlocksToTextConverter.expressionBlocks = [
     "code_expr",
     "color_black", "color_blue", "color_white", "color_magenta", "color_red", "color_light_gray", "color_pink",
@@ -13,7 +13,7 @@ Blockly.BlocksToTextConverter.expressionBlocks = [
     "logic_operation", "logic_negate", "logic_compare", "logic_boolean", "logic_false",
     "math_number",
     "math_compare",
-    "math_add", "math_multiply", "math_subtract", "math_division", "math_power", "math_divide",
+    "math_add", "math_multiply", "math_subtract", "math_division", "math_power", "math_divide", "math_on_list",
     "math_single", "math_abs", "math_neg", "math_round", "math_ceiling", "math_floor", "math_trig", "math_cos", "math_tan",
     "procedures_callreturn",
     "text,"
@@ -307,7 +307,7 @@ Blockly.BlocksToTextConverter.translate_math_on_list = function(element){
     var children = element.children;
 
     var op = children.namedItem("OP").innerHTML.toLowerCase();
-    Blockly.BlocksToTextConverter.venbraceText += op + "(";
+    Blockly.BlocksToTextConverter.venbraceText += op + " (";
 
     var mutationBlock;
 	for(var i = 0; i < children.length; i++){
