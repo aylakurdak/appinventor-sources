@@ -1,3 +1,7 @@
+goog.provide('Blockly.Blocks.blocksToText');
+
+goog.require('Blockly.Blocks.Utilities');
+
 Blockly.BlocksToTextConverter = {};
 
 // remember to add blocks to these lists!
@@ -19,7 +23,7 @@ Blockly.BlocksToTextConverter.expressionBlocks = [
     "text,"
    ];
   
-  Blockly.BlocksToTextConverter.statementBlocks = [
+Blockly.BlocksToTextConverter.statementBlocks = [
     "code_stmt",
     "component_set_get",
     "component_method",
@@ -29,10 +33,14 @@ Blockly.BlocksToTextConverter.expressionBlocks = [
     "procedures_callnoreturn",
   ];
   
-  Blockly.BlocksToTextConverter.declarationBlocks = [
+Blockly.BlocksToTextConverter.declarationBlocks = [
     "component_event",
     "global_declaration",
     "procedures_defnoreturn", "procedures_defreturn", ];
+
+Blockly.BlocksToTextConverter.atomicBlocks = [
+	"math_number"
+];
 
 Blockly.BlocksToTextConverter.venbraceText;
 
@@ -151,11 +159,16 @@ Blockly.BlocksToTextConverter.type = function(element){
 
 
 
-Blockly.BlocksToTextConverter.translateExpressionBlock = function(element){
+Blockly.BlocksToTextConverter.translateExpressionBlock = function(element) {
     var elementType = element.getAttribute("type");
-    Blockly.BlocksToTextConverter.venbraceText += '(';
-    Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
-	Blockly.BlocksToTextConverter.venbraceText += ')';
+
+	if(Blockly.BlocksToTextConverter.atomicBlocks.indexOf(elementType) !== -1) {
+		Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
+	} else {
+		Blockly.BlocksToTextConverter.venbraceText += '(';
+		Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
+		Blockly.BlocksToTextConverter.venbraceText += ')';
+	}
 };
 
 // handles potentially empty sockets
@@ -294,8 +307,7 @@ Blockly.BlocksToTextConverter.translate_math_divide = function(element){
 	var dividendItem = children.namedItem("DIVIDEND");
 	var divisorItem = children.namedItem("DIVISOR");
 	
-    //mod, remainder, quotient - is this the best syntax
-	var op = children.namedItem("OP").innerHTML.toLowerCase() + '_of';
+	var op = children.namedItem("OP").innerHTML.toLowerCase() + ' of';
 
 	Blockly.BlocksToTextConverter.venbraceText += op + ' ';
 	Blockly.BlocksToTextConverter.translateChildExpression(dividendItem);
@@ -307,7 +319,7 @@ Blockly.BlocksToTextConverter.translate_math_on_list = function(element){
     var children = element.children;
 
     var op = children.namedItem("OP").innerHTML.toLowerCase();
-    Blockly.BlocksToTextConverter.venbraceText += op + " (";
+    Blockly.BlocksToTextConverter.venbraceText += op + ' ';
 
     var mutationBlock;
 	for(var i = 0; i < children.length; i++){
@@ -325,11 +337,9 @@ Blockly.BlocksToTextConverter.translate_math_on_list = function(element){
 	for (var i = 1; i<numItems; i++){
 		valueItem = children.namedItem("NUM"+i);
 
-		Blockly.BlocksToTextConverter.venbraceText += ', ';
+		Blockly.BlocksToTextConverter.venbraceText += ' ';
 		Blockly.BlocksToTextConverter.translateChildExpression(valueItem);
-	}
-
-    Blockly.BlocksToTextConverter.venbraceText += ")"; //closing the list, is this bad form?
+	};
     
 };
 
@@ -339,7 +349,7 @@ Blockly.BlocksToTextConverter.translate_math_single = function(element){
 	
 	var op = children.namedItem("OP").innerHTML.toLowerCase();
 	if (op === "root") {
-		op = 'sqrt';
+		op = 'square root';
 	} else if(op === "ln"){
 		op = 'log';
 	} else if(op === "exp"){
@@ -368,4 +378,26 @@ Blockly.BlocksToTextConverter.translate_math_ceiling = function(element){
 
 Blockly.BlocksToTextConverter.translate_math_floor = function(element){
 	Blockly.BlocksToTextConverter.translate_math_single(element);
+};
+
+Blockly.BlocksToTextConverter.translate_math_trig = function(element){
+	var children = element.children;
+	var exprItem = children.namedItem('NUM')
+	var op = children.namedItem('OP');
+
+	Blockly.BlocksToTextConverter.venbraceText += op + ' ';
+	Blockly.BlocksToTextConverter.translateChildExpression(exprItem);
+};
+
+//why is there a math_cos and math_tan?
+
+Blockly.BlocksToTextConverter.translate_math_atan2 = function(element){
+	var children = element.children;
+	var yItem = children.namedItem('Y')
+	var xItem = children.namedItem('X');
+
+	Blockly.BlocksToTextConverter.venbraceText += op + ' y ';
+	Blockly.BlocksToTextConverter.translateChildExpression(yItem);
+	Blockly.BlocksToTextConverter.venbraceText += op + ' x ';
+	Blockly.BlocksToTextConverter.translateChildExpression(xItem);
 };

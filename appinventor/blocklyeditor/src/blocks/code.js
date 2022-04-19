@@ -11,7 +11,7 @@ Blockly.Blocks["code_decl"] = {
         this.setColour(Blockly.CODE_CATEGORY_HUE);
         this.appendDummyInput()
             .appendField("code decl")
-            .appendField(new Blockly.FieldTextInput('[]'), 'CODE');
+            .appendField(new Blockly.FieldTextInput(''), 'CODE');
     },
     typeblock: [{translatedName: "code declaration"}]
 }
