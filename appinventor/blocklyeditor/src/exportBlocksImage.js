@@ -490,6 +490,8 @@ Blockly.exportBlockAsPng = function(block) {
         a.download = (block.getChildren().length === 0 ? block.type : 'blocks') + '.png';
         a.target = '_self';
         a.href = URL.createObjectURL(blob);
+        console.log("export url"); // ayla
+        console.log(a.href);
         document.body.appendChild(a);
         a.addEventListener("click", function(e) {
           a.parentNode.removeChild(a);
@@ -515,6 +517,78 @@ Blockly.exportBlockAsPng = function(block) {
       }
     }
   });
+};
+
+// ayla
+Blockly.getBlockAsPng = function(block, elt) {
+  var xml = document.createElement('xml');
+  xml.appendChild(Blockly.Xml.blockToDom(block, true));
+  //console.log(xml);
+  var code = Blockly.Xml.domToText(xml);
+  //console.log(code);
+  var myUri;
+  var myUrl;
+  svgAsDataUri(block.svgGroup_, block.workspace.getMetrics(), null, function(uri) {
+    var img = new Image();
+    img.src = uri;
+    console.log(uri);
+    myUri = uri;
+    img.onload = function() {
+      var canvas = document.createElement('canvas');
+      canvas.width = 2 * img.width;
+      canvas.height = 2 * img.height;
+      var context = canvas.getContext('2d');
+      context.drawImage(img, 0, 0, img.width, img.height, 0, 0, canvas.width, canvas.height);
+
+      function returnPng(png) {
+        png.setCodeChunk(code);
+        for (var i = 0; i < png.chunks.length; i++) {
+          var phy = [112, 72, 89, 115];
+          if (png.chunks[i].type == 'pHYs') {
+            png.chunks.splice(i, 1, new PNG.Chunk(9, 'pHYs', pHY_data, crc32(phy.concat(pHY_data)))); //replacing existing pHYs chunk
+            break;
+          } else if (png.chunks[i].type == 'IDAT') {
+            png.chunks.splice(i, 0, new PNG.Chunk(9, 'pHYs', pHY_data, crc32(phy.concat(pHY_data)))); // adding new pHYs chunk
+            break;
+          }
+        }
+        var blob = png.toBlob();
+
+        
+        var a = document.createElement('a');
+        //a.download = (block.getChildren().length === 0 ? block.type : 'blocks') + '.png';
+        a.target = '_blank';
+        a.href = URL.createObjectURL(blob);
+        console.log("href url"); // ayla
+        console.log(a.href);
+        elt.appendChild(a);
+        a.addEventListener("click", function(e) {
+          //a.parentNode.removeChild(a);
+        });
+        a.click();
+      }
+
+      if (canvas.toBlob === undefined) {
+        var src = canvas.toDataURL('image/png');
+        var base64img = src.split(',')[1];
+        var decoded = window.atob(base64img);
+        var rawLength = decoded.length;
+        var buffer = new Uint8Array(new ArrayBuffer(rawLength));
+        for (var i = 0; i < rawLength; i++) {
+          buffer[i] = decoded.charCodeAt(i);
+        }
+        var blob = new Blob([buffer], {'type': 'image/png'});
+        new PNG().readFromBlob(blob, returnPng);
+      } else {
+        canvas.toBlob(function (blob) {
+        new PNG().readFromBlob(blob, returnPng);
+        });
+      }
+    }
+  });
+  console.log("My URI");
+  console.log(myUri);
+  return [myUri, myUrl];
 };
 
 /**

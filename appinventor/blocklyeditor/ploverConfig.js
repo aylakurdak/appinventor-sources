@@ -137,6 +137,9 @@
 
     // Venbrace
     "./code-utils/blocks-to-text-converter.js",
+    "./code-utils/parser-combinator.js",
+    "./code-utils/venbrace-forgiving-parser.js",
+    "./code-utils/tree-to-xml.js",
 
     //generator files
     "./src/generators/yail.js",

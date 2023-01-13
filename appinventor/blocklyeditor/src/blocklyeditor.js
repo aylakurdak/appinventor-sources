@@ -267,6 +267,9 @@ Blockly.Block.prototype.customContextMenu = function(options) {
 
   if(this.procCustomContextMenu){
     this.procCustomContextMenu(options);
+  } 
+  else if(this.codeCustomContextMenu){
+    this.codeCustomContextMenu(options);
   }
 };
 
