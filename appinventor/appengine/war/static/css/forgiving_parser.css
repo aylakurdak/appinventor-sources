@@ -1,0 +1,12 @@
+.parse-option-button {
+    background-color: white;
+    border-width: 0px;
+    outline-width: 0px;
+    padding: 10px;
+}
+.parse-option-button:hover {
+    cursor: pointer;
+}
+.parse-option-button:hover .parse-option-img {
+    outline: 3px solid rgb(39, 178, 69);
+}

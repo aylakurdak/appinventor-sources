@@ -140,6 +140,7 @@
     "./code-utils/parser-combinator.js",
     "./code-utils/venbrace-forgiving-parser.js",
     "./code-utils/tree-to-xml.js",
+    "./code-utils/parser-popup.js",
 
     //generator files
     "./src/generators/yail.js",
