@@ -28,14 +28,6 @@ Blockly.parserCombinator.Parser = function (f) {
 // --------------------
 
 /** 
- * A Parser that consumes nothing.
- * @type {Parser}
- */
-Blockly.parserCombinator.identity = new Blockly.parserCombinator.Parser(function(string) {
-    return [["",string]]
-})
-
-/** 
  * The natural element with respect to bind.
  * @param  {object} a - A parser result.
  * @return {Parser} - The parser that always succeeds with [[a, string]].

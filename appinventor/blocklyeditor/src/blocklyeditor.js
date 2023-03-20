@@ -22,6 +22,8 @@ goog.require('Blockly.TypeBlock');
 
 goog.require('Blockly.Flyout');
 
+goog.require('Blockly.VenbraceParser');
+
 // Make dragging a block from flyout work in any direction (default: 70)
 Blockly.Flyout.prototype.dragAngleRange_ = 360;
 
@@ -250,6 +252,15 @@ Blockly.BlocklyEditor.addConvertToVenbraceOption = function(myBlock, options) {
   options.push(convertToVenbrace)
 };
 
+Blockly.BlocklyEditor.addConvertToBlockOption = function(myBlock, options) {
+  var convertToBlock = {enabled: true};
+  convertToBlock.text = "Convert to Blocks";
+  convertToBlock.callback = function() {
+    Blockly.Venbrace.convertToBlocks(myBlock);
+  } 
+  options.push(convertToBlock);
+}
+
 /**
  * Adds extra context menu options to all blocks. Current options include:
  *   - Png Export
@@ -263,13 +274,18 @@ Blockly.Block.prototype.customContextMenu = function(options) {
   Blockly.BlocklyEditor.addGenerateYailOption(this, options);
   Blockly.BlocklyEditor.addDoItOption(this, options);
   Blockly.BlocklyEditor.addClearDoItOption(this, options);
-  Blockly.BlocklyEditor.addConvertToVenbraceOption(this, options)
 
   if(this.procCustomContextMenu){
     this.procCustomContextMenu(options);
   } 
-  else if(this.codeCustomContextMenu){
-    this.codeCustomContextMenu(options);
+  // else if(this.codeCustomContextMenu){
+  //   this.codeCustomContextMenu(options);
+  // }
+
+  if (this.category != "Code") {
+    Blockly.BlocklyEditor.addConvertToVenbraceOption(this, options);
+  } else {
+    Blockly.BlocklyEditor.addConvertToBlockOption(this, options);
   }
 };
 
@@ -635,7 +651,7 @@ top.document.addEventListener('mousedown', function(e) {
 Blockly.BlocklyEditor.repositionNewlyGeneratedBlock = function(oldBlock, newBlock){
   //variable which indicates whether or not we need to reposition the newly generated blocks
   var reposition = true;
-  /*
+  
   if(oldBlock.outputConnection){ //expression block
     if(oldBlock.outputConnection.targetConnection){
       //no need to reposition if the block is plugged into another block
@@ -667,7 +683,6 @@ Blockly.BlocklyEditor.repositionNewlyGeneratedBlock = function(oldBlock, newBloc
       newConnection.connect(nextBlockConnection);
     }
   } //otherwise it's a top level block, and the code below will handle it
-  */
   if(reposition){
     var xy = oldBlock.getRelativeToSurfaceXY();
     newBlock.moveBy(xy.x, xy.y);

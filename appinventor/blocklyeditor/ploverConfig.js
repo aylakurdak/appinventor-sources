@@ -136,11 +136,12 @@
     './src/blocks/code.js',
 
     // Venbrace
-    "./code-utils/blocks-to-text-converter.js",
-    "./code-utils/parser-combinator.js",
-    "./code-utils/venbrace-forgiving-parser.js",
-    "./code-utils/tree-to-xml.js",
-    "./code-utils/parser-popup.js",
+    "./venbrace-utils/blocks-to-text-converter.js",
+    "./venbrace-utils/parser-combinator.js",
+    "./venbrace-utils/venbrace-parser.js",
+    "./venbrace-utils/tree-to-xml.js",
+    //"./venbrace-utils/parser-popup.js",
+    "./venbrace-utils/venbrace.js",
 
     //generator files
     "./src/generators/yail.js",

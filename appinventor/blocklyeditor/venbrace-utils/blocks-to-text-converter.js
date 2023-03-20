@@ -6,30 +6,21 @@ Blockly.BlocksToTextConverter = {};
 
 // remember to add blocks to these lists!
 Blockly.BlocksToTextConverter.expressionBlocks = [
-    "code_expr",
-    "color_black", "color_blue", "color_white", "color_magenta", "color_red", "color_light_gray", "color_pink",
-    "color_gray", "color_orange", "color_dark_gray", "color_yellow", "color_green", "color_cyan", "color_make_color",
     "component_set_get",
-    "controls_choose",
     "lexical_variable_get",
-    "lists_create_with",
-    "local_declaration_expression",
-    "logic_operation", "logic_negate", "logic_compare", "logic_boolean", "logic_false",
+    "lists_create_with", "lists_is_empty",
+    "logic_negate", "logic_boolean", "logic_false",
     "math_number",
-    "math_compare",
     "math_add", "math_multiply", "math_subtract", "math_division", "math_power", "math_divide", "math_on_list",
-    "math_single", "math_abs", "math_neg", "math_round", "math_ceiling", "math_floor", "math_trig", "math_cos", "math_tan",
+    "math_single", "math_abs", "math_neg", "math_round", "math_ceiling", "math_floor",
     "procedures_callreturn",
-    "text,"
+    "text"
    ];
   
 Blockly.BlocksToTextConverter.statementBlocks = [
-    "code_stmt",
     "component_set_get",
-    "component_method",
     "controls_if", 
     "lexical_variable_set",
-    "local_declaration_statement",
     "procedures_callnoreturn",
   ];
   
@@ -39,7 +30,11 @@ Blockly.BlocksToTextConverter.declarationBlocks = [
     "procedures_defnoreturn", "procedures_defreturn", ];
 
 Blockly.BlocksToTextConverter.atomicBlocks = [
-	"math_number"
+	"math_number",
+	"logic_boolean",
+    "logic_false",
+    "text",
+    "lexical_variable_get"
 ];
 
 Blockly.BlocksToTextConverter.venbraceText;
@@ -181,7 +176,25 @@ Blockly.BlocksToTextConverter.translateChildExpression = function(item) {
 };
 
 Blockly.BlocksToTextConverter.translateStatementBlock = function(element){
-	Blockly.BlocksToTextConverter.venbraceText += '{}';
+    var elementType = element.getAttribute("type");
+
+	Blockly.BlocksToTextConverter.venbraceText += '{';
+	Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
+	Blockly.BlocksToTextConverter.venbraceText += '}';
+
+};
+
+Blockly.BlocksToTextConverter.translateChildStatement = function(element){
+	if (!element) {
+        Blockly.BlocksToTextConverter.venbraceText += '{}';
+    } else { //if element is not null (make sure it's not the empty statement)
+        var curBlock = element.firstElementChild; //this should be the first statement block
+        Blockly.BlocksToTextConverter.translateStatementBlock(curBlock);
+        var next = curBlock.lastElementChild.nodeName === "NEXT" ? curBlock.lastElementChild : false;
+        if(next){
+            Blockly.BlocksToTextConverter.translateChildStatement(next);
+        }
+    }
 };
 
 Blockly.BlocksToTextConverter.translateDeclarationBlock = function(element){
@@ -380,24 +393,97 @@ Blockly.BlocksToTextConverter.translate_math_floor = function(element){
 	Blockly.BlocksToTextConverter.translate_math_single(element);
 };
 
-Blockly.BlocksToTextConverter.translate_math_trig = function(element){
-	var children = element.children;
-	var exprItem = children.namedItem('NUM')
-	var op = children.namedItem('OP');
 
-	Blockly.BlocksToTextConverter.venbraceText += op + ' ';
-	Blockly.BlocksToTextConverter.translateChildExpression(exprItem);
+Blockly.BlocksToTextConverter.translate_text = function(element) {
+	Blockly.BlocksToTextConverter.venbraceText += '"' + element.firstElementChild.innerHTML + '"';
+}
+
+Blockly.BlocksToTextConverter.translate_logic_boolean = function(element) {
+	Blockly.BlocksToTextConverter.venbraceText += element.firstElementChild.innerHTML.toLowerCase();
+}
+
+Blockly.BlocksToTextConverter.translate_logic_false = function(element) {
+    Blockly.BlocksToTextConverter.translate_logic_boolean(element);
+}
+
+Blockly.BlocksToTextConverter.translate_logic_negate = function(element){
+	var children = element.children;
+	var item = children.namedItem("BOOL");
+
+	Blockly.BlocksToTextConverter.venbraceText += "not ";
+
+	Blockly.BlocksToTextConverter.translateChildExpression(item);
+}
+
+Blockly.BlocksToTextConverter.translate_lists_create_with = function(element){
+	Blockly.BlocksToTextConverter.venbraceText += 'list';
+
+	var children = element.children;
+	var mutation = parseInt(element.firstElementChild.getAttribute("items"));
+
+	for(var i=0; i<mutation; i++){
+		var valBlock= children.namedItem("ADD" + i);
+		if(valBlock){
+			Blockly.BlocksToTextConverter.venbraceText += ' ';
+			Blockly.BlocksToTextConverter.translateChildExpression(valBlock);
+		}
+	}
 };
 
-//why is there a math_cos and math_tan?
-
-Blockly.BlocksToTextConverter.translate_math_atan2 = function(element){
+Blockly.BlocksToTextConverter.translate_lists_is_empty = function(element) {
 	var children = element.children;
-	var yItem = children.namedItem('Y')
-	var xItem = children.namedItem('X');
+	var item = children.namedItem("LIST");
 
-	Blockly.BlocksToTextConverter.venbraceText += op + ' y ';
-	Blockly.BlocksToTextConverter.translateChildExpression(yItem);
-	Blockly.BlocksToTextConverter.venbraceText += op + ' x ';
-	Blockly.BlocksToTextConverter.translateChildExpression(xItem);
-};
+	Blockly.BlocksToTextConverter.venbraceText += "is list empty? ";
+
+	Blockly.BlocksToTextConverter.translateChildExpression(item);
+}
+
+Blockly.BlocksToTextConverter.translate_lexical_variable_get = function(element) {
+    Blockly.BlocksToTextConverter.venbraceText += element.firstElementChild.innerHTML;
+}
+
+Blockly.BlocksToTextConverter.translate_lexical_variable_set = function(element) {
+	var children = element.children;
+	var varName = children.namedItem("VAR").innerHTML;
+	var value = children.namedItem("VALUE");
+
+    Blockly.BlocksToTextConverter.venbraceText += "set " + varName + " to ";
+    Blockly.BlocksToTextConverter.translateChildExpression(value);
+}
+
+Blockly.BlocksToTextConverter.translate_controls_if = function(element) {
+	var numElse = 0;
+    var numElseIf = 0;
+    if (element.firstElementChild.nodeName === "MUTATION") {
+        var mutation = element.firstElementChild;
+        numElse = mutation.getAttribute("else");
+		numElse == null ? 0 : numElse;
+        numElseIf = mutation.getAttribute("elseif");
+		numElseIf == null ? 0 : numElseIf;
+    }
+
+	var children = element.children;
+
+	var if0 = children.namedItem("IF0");
+	var do0 = children.namedItem("DO0");
+
+
+    Blockly.BlocksToTextConverter.venbraceText += "if ";
+    Blockly.BlocksToTextConverter.translateChildExpression(if0);
+    Blockly.BlocksToTextConverter.venbraceText += " then ";
+    Blockly.BlocksToTextConverter.translateChildStatement(do0);
+
+    for (var i = 1; i <= numElseIf; i++){
+        Blockly.BlocksToTextConverter.venbraceText += " else if ";
+        Blockly.BlocksToTextConverter.translateChildExpression(children.namedItem("IF"+i));
+        Blockly.BlocksToTextConverter.venbraceText += " then ";
+        Blockly.BlocksToTextConverter.translateChildStatement(children.namedItem("DO"+i));
+	}
+
+    if (numElse == 1) {
+        Blockly.BlocksToTextConverter.venbraceText += " else ";
+        Blockly.BlocksToTextConverter.translateChildStatement(children.namedItem("ELSE"));
+    } 
+    
+}
