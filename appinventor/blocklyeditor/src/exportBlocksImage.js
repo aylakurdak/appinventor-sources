@@ -526,7 +526,7 @@ Blockly.getDataUri = function(block) {
   var myUri;
   svgAsDataUri(block.svgGroup_, block.workspace.getMetrics(), null, function(uri) {
     myUri = uri;
-    console.log(myUri)
+    //console.log(myUri)
   });
   return myUri;
 }

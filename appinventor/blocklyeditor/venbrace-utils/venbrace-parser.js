@@ -6,6 +6,10 @@ goog.require('Blockly.parserCombinator');
 
 Blockly.VenbraceParser = {};
 
+/**
+ * Parses the contents of a code block. Only returns the parses that parse
+ * the whole string.
+ */
 Blockly.VenbraceParser.parseToEnd = function(codeblock) {
     var str = codeblock.getFieldValue('CODE');
     
@@ -26,11 +30,14 @@ Blockly.VenbraceParser.parseToEnd = function(codeblock) {
     return fullParses;
 }
 
-Blockly.VenbraceParser.firstParse = function(str) {
-    var parseTree = Blockly.VenbraceParser.parse(str);
-    return parseTree.length > 0 ? parseTree[0][0] : parseTree
-}
+// Blockly.VenbraceParser.firstParse = function(str) {
+//     var parseTree = Blockly.VenbraceParser.parse(str);
+//     return parseTree.length > 0 ? parseTree[0][0] : parseTree
+// }
 
+/**
+ * Parses a string based on whether it comes from a block of type code_expr, code_stmt, or code_decl.
+ */
 Blockly.VenbraceParser.parse = function(str,type) {
 
     var pc = Blockly.parserCombinator;
@@ -102,6 +109,7 @@ var KEYWORD_STR = {
     MIN: "min",
     MAX: "max",
     NEG: "neg",
+    SQRT: ["square","root"],
     SET: "set",
     TO: "to",
     GET: "get",
@@ -228,9 +236,9 @@ var getVar = comprehension(
 );
 
 // can be expr or stmt // TODO - separate expr and stmt!!
-var procedureCall = KEY.CALL.bind(function(_) {
+var procedureCallExpr = KEY.CALL.bind(function(_) {
     return comprehension(LIT.VARNAME, manyStar(expr), function(fname, args) {
-        return ["call",fname,args];
+        return ["call expr",fname,args];
     })
 }); 
 
@@ -250,7 +258,7 @@ function getComponent(properties) {
         LIT.VARNAME,
         properties,
         function(component,property) {
-            return ["get component",component,property];
+            return ["component get",component,property];
         }
     );
 }
@@ -262,7 +270,7 @@ var stringPropertyGetter = getComponent(stringProperty);
 
 // vars and procedure calls can be any type, so should be allowed in any type of expression
 function includeVars(p) {
-    return p.or(procedureCall).or(getVar).or(emptySlot);
+    return p.or(procedureCallExpr).or(getVar).or(emptySlot);
 }
 
 /* ~~ Strings ~~ */
@@ -329,6 +337,12 @@ var logicExpr = lenientNode(includeVars(logicExprTop));
 var negExpr = KEY.NEG.bind(function(_) {
     return mathExpr.bind(function(e) {
         return result(["neg",e])
+    })
+})
+
+var sqrtExpr = KEY.SQRT.bind(function(_) {
+    return mathExpr.bind(function(e) {
+        return result(["sqrt",e]);
     })
 })
 
@@ -404,6 +418,7 @@ var mathExpr = identity.bind(function(_) {
 var prefixMathExpr = lenientNode(includeVars(
     LIT.NUMBER
     .or(negExpr)
+    .or(sqrtExpr)
     .or(minMaxExpr)
     .or(mathPropertyGetter)
 ));
@@ -457,6 +472,11 @@ var setter = stringPropertySetter
     .or(mathPropertySetter)
     .or(varSetter);
 
+var procedureCallStmt = KEY.CALL.bind(function(_) {
+    return comprehension(LIT.VARNAME, manyStar(expr), function(fname, args) {
+        return ["call stmt",fname,args];
+    })
+}); 
 
 /* ~~ If Statements ~~ */
 
@@ -520,7 +540,7 @@ var ifStmt = ifDo.bind(function(ifBody) {
 var stmtNoIf = lenientNode(
     setter
     .or(emptySlot)
-    .or(procedureCall)
+    .or(procedureCallStmt)
 );
 var stmt = stmtNoIf.or(lenientNode(ifStmt));
 

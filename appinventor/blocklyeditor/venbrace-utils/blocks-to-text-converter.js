@@ -25,9 +25,8 @@ Blockly.BlocksToTextConverter.statementBlocks = [
   ];
   
 Blockly.BlocksToTextConverter.declarationBlocks = [
-    "component_event",
-    "global_declaration",
-    "procedures_defnoreturn", "procedures_defreturn", ];
+    "component_event"
+];
 
 Blockly.BlocksToTextConverter.atomicBlocks = [
 	"math_number",
@@ -88,7 +87,7 @@ Blockly.BlocksToTextConverter.translateBlock = function(element) {
     var tagName = element.nodeName.toLowerCase();
     if(tagName === "block"){
         var type = element.getAttribute("type");
-        if(type === "component_set_get"){ //what is this???
+        if(type === "component_set_get"){
             var mutations = Blockly.BlocksToTextConverter.getImmediateChildrenByTagName(element, "mutation");
             var mutation;
             if(mutations.length !== 0){
@@ -157,13 +156,20 @@ Blockly.BlocksToTextConverter.type = function(element){
 Blockly.BlocksToTextConverter.translateExpressionBlock = function(element) {
     var elementType = element.getAttribute("type");
 
-	if(Blockly.BlocksToTextConverter.atomicBlocks.indexOf(elementType) !== -1) {
-		Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
-	} else {
-		Blockly.BlocksToTextConverter.venbraceText += '(';
-		Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
-		Blockly.BlocksToTextConverter.venbraceText += ')';
+	try {
+		if(Blockly.BlocksToTextConverter.atomicBlocks.indexOf(elementType) !== -1) {
+			Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
+		} else {
+			Blockly.BlocksToTextConverter.venbraceText += '(';
+			Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
+			Blockly.BlocksToTextConverter.venbraceText += ')';
+		}
+	} catch (error) {
+		console.log("Tried to translate a type of block that is not yet implemented.");
+		console.log("Type",elementType);
+		console.log(error);
 	}
+	
 };
 
 // handles potentially empty sockets
@@ -198,7 +204,11 @@ Blockly.BlocksToTextConverter.translateChildStatement = function(element){
 };
 
 Blockly.BlocksToTextConverter.translateDeclarationBlock = function(element){
-	Blockly.BlocksToTextConverter.venbraceText += '[]';
+	var elementType = element.getAttribute("type");
+
+	Blockly.BlocksToTextConverter.venbraceText += '[';
+	Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
+	Blockly.BlocksToTextConverter.venbraceText += ']';
 };
 
 
@@ -486,4 +496,60 @@ Blockly.BlocksToTextConverter.translate_controls_if = function(element) {
         Blockly.BlocksToTextConverter.translateChildStatement(children.namedItem("ELSE"));
     } 
     
+}
+
+Blockly.BlocksToTextConverter.translate_procedures_call = function(element){
+	var children = element.children;
+	var procName = children.namedItem("PROCNAME").innerHTML;
+	var mutation = element.firstElementChild;
+	var numArgs = mutation.children.length;
+	Blockly.BlocksToTextConverter.venbraceText += 'call ' + procName;
+	for (var i = 0; i < numArgs; i++) {
+	  //Blockly.BlocksToTextConverter.venbraceText += " " + mutationChildren[i].getAttribute("name") + ": "; // should be ARG element with name
+	  var itemi = children.namedItem("ARG"+i);
+	  Blockly.BlocksToTextConverter.venbraceText += " "
+	  Blockly.BlocksToTextConverter.translateChildExpression(itemi);
+	}
+}
+  
+Blockly.BlocksToTextConverter.translate_procedures_callreturn = Blockly.BlocksToTextConverter.translate_procedures_call
+
+Blockly.BlocksToTextConverter.translate_procedures_callnoreturn = Blockly.BlocksToTextConverter.translate_procedures_call
+
+
+//Hacky....fix later!! -- says whoever wrote this code
+Blockly.BlocksToTextConverter.translate_component_set_get = function(element){
+	var children = element.children;
+	var componentName = children.namedItem("COMPONENT_SELECTOR").innerHTML;
+	var propName = children.namedItem("PROP").innerHTML;
+	
+	var mutations = Blockly.BlocksToTextConverter.getImmediateChildrenByTagName(element,"mutation");
+	if(mutations.length !== 1){
+		console.log("BlocksToTextCovereter - translate_component_event: Something is wrong with this block.")
+	}
+	var setGet = mutations[0].getAttribute("set_or_get");
+
+	if(setGet === "set"){
+		var valBlockItem = children.namedItem("VALUE");
+		Blockly.BlocksToTextConverter.venbraceText += 'set ' + componentName + '.' + propName + ' to ';
+		Blockly.BlocksToTextConverter.translateChildExpression(valBlockItem);
+	} else{
+		Blockly.BlocksToTextConverter.venbraceText += componentName + '.' + propName;
+	}
+}
+
+Blockly.BlocksToTextConverter.translate_component_event = function(element){
+	var children = element.children;
+	var componentName = children.namedItem("COMPONENT_SELECTOR").innerHTML;
+	var mutations = Blockly.BlocksToTextConverter.getImmediateChildrenByTagName(element,"mutation");
+	if(mutations.length !== 1){
+		console.log("BlocksToTextCovereter - translate_component_event: Something is wrong with this block.")
+	}
+	var eventName = mutations[0].getAttribute("event_name");
+
+	Blockly.BlocksToTextConverter.venbraceText += 'when ' + componentName + '.' + eventName + ' do ';
+
+	var suite = children.namedItem("DO");
+
+	Blockly.BlocksToTextConverter.translateChildStatement(suite);
 }

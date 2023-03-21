@@ -4,39 +4,29 @@ goog.provide('Blockly.ParseTreeToXml');
 
 Blockly.ParseTreeToXml = {};
 
-/***
- * STILL TO DO
- * var KEYWORD_STR = {
-    SET: "set",
-    TO: "to",
-    GET: "get",
-    WHEN: "when",
-    CALL: "call",
-    CLICK: ".Click",  // will probably want to separate the dot
-    CHANGED: ".Changed",
-    VISIBLE: ".Visible",
-    RADIUS: ".Radius",
-    SPEED: ".Speed",
-    ON: ".On",
-    ENABLED: ".Enabled",
-    CHECKED: ".Checked",
-    TEXT: ".Text"};
- * 
- * component get
- * component set
- * component event handler
- * proc call (expr and stmt)
- */
-
-
-
-
-
 /**
- * Creates an XML string representation of a block given a parse tree.
+ * Converts a parse tree into and XML string.
+ * 
+ * Returns an object which contains a boolean "aborted" which is false if the conversion was successful, and
+ * a string "str" which is the XML string if the conversion was successful or an error message otherwise.
  * @param {Array} parseTree A single parse tree result from the forgiving parser (ex. ["max", ["-", "1", "2"], "3"])
+ * @param {Block} codeBlock The code block being converted. 
+ * 
  */
-Blockly.ParseTreeToXml.makeXmlString = function(parseTree) {
+Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
+
+    // If we can't make valid App Inventor blocks from this parse tree, abort and return false.
+    // This might happen if we call a function or component that doesn't exist,
+    // or call a function with the wrong number of args. This is definitely not ideal behavior,
+    // but it's necessary for now, especially with ambiguous parsing (need ot filter unreasonable cases)
+    var aborted = false;
+    var abortMessage = "";
+
+    function abort(message) {
+        aborted = true;
+        abortMessage = message;
+        console.log("Aborting:", message);
+      }
 
   /**
    * Creates the content of an XML string (without the <xml>...</xml> tags) from a parse tree.
@@ -45,6 +35,10 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree) {
    * @param {Array} nextStmts Optional, for statements, the list of following statements (all the nextConnections)
    */
   var treeToXmlString = function(parseTree, nextStmts) {
+
+    if (aborted) {
+        return "";
+    }
     
     // Atom only includes nums and bools because those are the only things that don't
     // get nested inside a list.
@@ -75,7 +69,7 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree) {
   var atomicToXmlString = function(parseTree) {
     //var first = parseTree[0];
     
-    if (! isNaN(Number(parseTree))) {
+    if (! isNaN(Number(parseTree)) && parseTree.length != 0) {
       return makeBlockXmlString("math_number","",null,[["NUM",Number(parseTree)]]);
     } 
     else if (parseTree === "true") {
@@ -103,7 +97,18 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree) {
     var xml = '<block type="' + type + '">'
         + mutationsXmlString(mutations)
         + fieldXmlString(fields)
-        + childrenXml //+ childrenToXmlString(namedChildren),
+        + childrenXml
+        + makeNextStmts(nextStmts)
+        + "</block>"
+    return xml;
+  };
+
+  // identical to above but with mutation xml already handled instead of an object to be handled
+  var makeProcXmlString = function(type,childrenXml,mutationXml,fields,nextStmts) {
+    var xml = '<block type="' + type + '">'
+        + mutationXml
+        + fieldXmlString(fields)
+        + childrenXml
         + makeNextStmts(nextStmts)
         + "</block>"
     return xml;
@@ -132,29 +137,6 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree) {
     }
     return xml;
   };
-  
-  
-  // TODO: deal with empty sockets
-  
-  /**
-   * Creates an xml string of a list of child blocks where each is wrapped in 
-   * <value name=NAME>...CHILD BLOCK...</value>
-   * @param {Array} namedChildren A list of pairs of form [value name, tree].
-   */
-  var childrenToXmlString = function(namedChildren) {
-    var xml = "";
-    if (namedChildren) {
-      for (var i = 0; i < namedChildren.length; i++) {
-        var valOrStmt = 'value' // will need to add in val vs stmt to child names
-        var name = namedChildren[i][0];
-        var childXml = treeToXmlString(namedChildren[i][1]);
-        //xml += `<${valOrStmt} name="${name}>${childXml}</${valOrStmt}>`
-        xml += '<value name="' + name + '">' + childXml + "</value>";
-      }
-    }
-    return xml;
-  };
-
 
   function valChildXml(name,child) {
     var childXml = treeToXmlString(child);
@@ -171,16 +153,6 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree) {
     var xml = '<statement name="' + name + '">' + childXml + "</statement>";
     return xml;
   }
-  
-  var makeNamedChildrenList = function(nameRoot, children) {
-    var namedChildren = [];
-    for (var i = 0; i < children.length; i++) {
-        var name = nameRoot+i;
-        var child = children[i];
-        namedChildren.push([name,child]);
-    }
-    return namedChildren;
-  };
 
   function makeArgListXml(nameRoot, children) {
     var xml = "";
@@ -208,10 +180,12 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree) {
   var MAX = 'max',
       MIN = 'min',
       NEG = 'neg',
+      SQRT = 'sqrt',
       PLUS = '+',
       MINUS = '-',
       TIMES = '*',
       DIVIDE = '/',
+      POWER = '^',
       LIST = 'list',
       IF = 'ifStmt',
       STR = 'str',
@@ -219,25 +193,28 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree) {
       VAR_GET = 'variable get',
       VAR_SET = 'variable set',
       NOT = 'not',
-      IS_LIST_EMPTY = "isListEmpty";
+      IS_LIST_EMPTY = "isListEmpty",
+      CALL_RETURN = 'call expr',
+      CALL_NORETURN = 'call stmt',
+      COMPONENT_GET = 'component get',
+      COMPONENT_SET = 'component set',
+      WHEN = 'when';
   
   var operatorToXml = {};
-  
-//   operatorToXml[MAX]= function(children) {
-//     return makeBlockXmlString(
-//         "math_on_list",
-//         makeNamedChildrenList("NUM",children),
-//         {"items":children.length},
-//         [["OP","MAX"]]);
-//   };
 
-operatorToXml[MAX]= function(children) {
+  operatorToXml[SLOT] = function() {
+    return "";
+  };
+
+  /* ~~~~~~~~~ Math ~~~~~~~~~~ */
+
+  operatorToXml[MAX]= function(children) {
     return makeBlockXmlString(
         "math_on_list",
         makeArgListXml("NUM",children),
         {"items":children.length},
         [["OP","MAX"]]);
-};
+  };
   
   operatorToXml[MIN]= function(children) {
     return makeBlockXmlString(
@@ -253,6 +230,14 @@ operatorToXml[MAX]= function(children) {
         valChildXml("NUM",children[0]),
         null,
         [["OP","NEG"]]);
+  };
+
+  operatorToXml[SQRT] = function(children) {
+    return makeBlockXmlString(
+        "math_single",
+        valChildXml("NUM",children[0]),
+        null,
+        [["OP","ROOT"]]);
   };
   
   operatorToXml[PLUS] = function(children) {
@@ -288,6 +273,17 @@ operatorToXml[MAX]= function(children) {
         "math_division",
         childrenXml);
   };
+
+  operatorToXml[POWER] = function(children) {
+    var childrenXml = valChildXml("A",children[0]) 
+        + valChildXml("B",children[1]);
+
+    return makeBlockXmlString(
+        "math_power",
+        childrenXml);
+  };
+
+  /* ~~~~~~~~~ Lists ~~~~~~~~~~ */
   
   operatorToXml[LIST] = function(children) {
     return makeBlockXmlString(
@@ -295,6 +291,59 @@ operatorToXml[MAX]= function(children) {
         makeArgListXml("ADD",children),
         {"items":children.length});
   };
+
+  operatorToXml[IS_LIST_EMPTY] = function(children) {
+    return makeBlockXmlString(
+        "lists_is_empty",
+        valChildXml("LIST",children[0])
+    );
+  };
+
+  /* ~~~~~~~~~ Strings ~~~~~~~~~~ */
+
+  // could cause problems if someone enters a crazy string (what if the string is xml?)
+  operatorToXml[STR] = function(text) {
+    return makeBlockXmlString(
+        "text",
+        "",
+        null,
+        [["TEXT",text]]
+    );
+  };
+  
+  /* ~~~~~~~~~ Logic ~~~~~~~~~~ */
+
+  operatorToXml[NOT] = function(children) {
+    return makeBlockXmlString(
+        "logic_negate",
+        valChildXml("BOOL",children[0])
+    );
+  };
+
+  /* ~~~~~~~~~ Variables ~~~~~~~~~~ */
+
+  operatorToXml[VAR_GET] = function(varName) {
+    return makeBlockXmlString(
+        "lexical_variable_get",  // global variables not currently supported
+        "",
+        null,
+        [["VAR",varName]]
+    );
+  };
+
+  operatorToXml[VAR_SET] = function(nameAndChild, nextStmts) {
+    var varName = nameAndChild[0];
+    var child = valChildXml("VALUE", nameAndChild[1])
+    return makeBlockXmlString(
+        "lexical_variable_set",  // global variables not currently supported
+        child,
+        null,
+        [["VAR",varName]],
+        nextStmts
+    );
+  };
+
+  /* ~~~~~~~~~ Controls ~~~~~~~~~~ */
 
   operatorToXml[IF] = function(children,nextStmts) {
     var childrenXml = "";
@@ -322,55 +371,149 @@ operatorToXml[MAX]= function(children) {
     );
   };
 
-  operatorToXml[SLOT] = function() {
-    return "";
-  };
+  /* ~~~~~~~~~ Procedure Calls ~~~~~~~~~~ */
 
-  // could cause problems if someone enters a crazy string (what if the string is xml?)
-  operatorToXml[STR] = function(text) {
-    return makeBlockXmlString(
-        "text",
-        "",
-        null,
-        [["TEXT",text]]
-    );
-  };
+  function procCall(children,type) {
+    var workspace = codeBlock.workspace;
+    var fname = children[0];
+    var args = children[1];
+    var procedure = workspace.getProcedureDatabase().getProcedureByName(fname);
+    if (procedure) {
+        if (procedure.type == "procedures_def"+type) {
+            var procArgs = procedure.arguments_;
+            if (args.length == procArgs.length) {
+                var childrenXml = "";
+                for (var i=0;i<args.length;i++) {
+                    childrenXml += valChildXml("ARG"+i,args[i]);
+                }
 
-  operatorToXml[VAR_GET] = function(varName) {
-    return makeBlockXmlString(
-        "lexical_variable_get",  // global variables not currently supported
-        "",
-        null,
-        [["VAR",varName]]
-    );
-  };
+                var mutation = Blockly.Xml.domToText(procedure.mutationToDom()); // this might cause problems - it seems to be working
+                
+                return makeProcXmlString(
+                    "procedures_call"+type,
+                    childrenXml,
+                    mutation,
+                    [["PROCNAME",fname]]
+                );
 
-  operatorToXml[VAR_SET] = function(nameAndChild, nextStmts) {
-    var varName = nameAndChild[0];
-    var child = valChildXml("VALUE", nameAndChild[1])
-    return makeBlockXmlString(
-        "lexical_variable_set",  // global variables not currently supported
-        child,
-        null,
-        [["VAR",varName]],
-        nextStmts
-    );
-  };
+            } else {
+                abort("Wrong number of args for procedure " + fname + ".\n Expected " + procArgs.length + ". Got " + args.length);
+            }
+        } else {
+            abort("Procedure " + fname + " is not of type procedures_call"+type);
+        }
+    } else {
+        abort(fname + " is not a procedure.");
+    }
+  }
+  operatorToXml[CALL_RETURN] = function(children) {
+    return procCall(children,"return");
+  }
 
-  operatorToXml[NOT] = function(children) {
-    return makeBlockXmlString(
-        "logic_negate",
-        valChildXml("BOOL",children[0])
-    );
-  };
+  operatorToXml[CALL_NORETURN] = function(children) {
+    return procCall(children,"noreturn");
+  }
 
-  operatorToXml[IS_LIST_EMPTY] = function(children) {
+  /* ~~~~~~~~~ Components ~~~~~~~~~~ */
+
+  function componentSetGet(children,setGet) {
+    var workspace = codeBlock.workspace;
+    var db = workspace.getComponentDatabase();
+
+    var componentName = children[0];
+    var propertyName = children[1].slice(1); // .Text to Text - really, the parser should handle this, but it doesn't
+    var componentType = db.instanceNameToTypeName(componentName);
+
+    if (!componentType) {
+        abort("No component with name " + componentName);
+        return;
+    }
+
+    var hasProperty = db.getPropertyForType(componentType,propertyName) ? true : false;
+    if (!hasProperty) {
+        abort("No property " + propertyName + " for components of type " + componentType);
+        return;
+    }
+
+    var mutation = {
+        "component_type": componentType,
+        "set_or_get": setGet,
+        "property_name":propertyName,
+        "is_generic":false,
+        "instance_name": componentName
+    };
+
+    var fields = [["COMPONENT_SELECTOR",componentName],["PROP",propertyName]]
+
+    if (setGet === "set") {
+        var childrenXml = valChildXml("VALUE",children[2]);
+    } else {
+        var childrenXml = ""
+    }
+
     return makeBlockXmlString(
-        "lists_is_empty",
-        valChildXml("LIST",children[0])
+        "component_set_get",
+        childrenXml,
+        mutation,
+        fields
     );
-  };
+  }
+
+  operatorToXml[COMPONENT_GET] = function(children) {
+    return componentSetGet(children,"get")
+  }
+
+  operatorToXml[COMPONENT_SET] = function(children) {
+    return componentSetGet(children,"set")
+  }
+
+  operatorToXml[WHEN] = function(children) {
+    var workspace = codeBlock.workspace;
+    var db = workspace.getComponentDatabase();
+
+    var componentName = children[0];
+    var eventName = children[1].slice(1); // .Text to Text - really, the parser should handle this, but it doesn't
+    var componentType = db.instanceNameToTypeName(componentName);
+
+    if (!componentType) {
+        abort("No component with name " + componentName);
+        return;
+    }
+
+    var hasEvent = db.getEventForType(componentType,eventName) ? true : false;
+    if (!hasEvent) {
+        abort("No event " + eventName + " for components of type " + componentType);
+        return;
+    }
+
+    var mutation = {
+        "component_type": componentType,
+        "event_name":eventName,
+        "is_generic":false,
+        "instance_name": componentName
+    };
+    var field = [["COMPONENT_SELECTOR",componentName]];
+
+    return makeBlockXmlString(
+        "component_event",
+        stmtChildXml("DO",children[2]),
+        mutation,
+        field
+    );
+
+  }
+
+
+  /* ~~~~~~~~~ Top level treeToXmlString call ~~~~~~~~~~ */
   
-  return '<xml xmlns="http://www.w3.org/1999/xhtml">' + treeToXmlString(parseTree) + "</xml>"; // might need to add xmlns="http://www.w3.org/1999/xhtml"
+  var xmlstr = '<xml xmlns="http://www.w3.org/1999/xhtml">' + treeToXmlString(parseTree) + "</xml>"; // might need to add xmlns="http://www.w3.org/1999/xhtml"
 
+  if (aborted) {
+    console.log("Aborted:", abortMessage);
+    console.log("Aborted Xml string:", xmlstr);
+    return {"aborted":true,"str":abortMessage};
+  } 
+  else {
+    return {"aborted":false,"str":xmlstr};
+  }
 };

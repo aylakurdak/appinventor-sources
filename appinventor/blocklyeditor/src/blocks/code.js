@@ -11,7 +11,7 @@ Blockly.Blocks["code_decl"] = {
         this.appendDummyInput()
             .appendField("code decl")
             .appendField(new Blockly.FieldTextInput(''), 'CODE');
-        console.log("")
+        console.log(" ")
     },
     typeblock: [{translatedName: "code declaration"}]
 }
