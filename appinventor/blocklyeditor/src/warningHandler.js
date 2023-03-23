@@ -787,3 +787,14 @@ Blockly.WarningHandler.prototype['checkReplErrors'] = function(block) {
   }
   return false;
 };
+
+
+
+// Code block parse error
+Blockly.WarningHandler.prototype['checkParseError'] = function(codeBlock) {
+  if (codeBlock.parseErrorMessage) {
+    codeBlock.setErrorIconText(codeBlock.parseErrorMessage);
+    return true;
+  }
+  return false;
+}

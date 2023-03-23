@@ -11,9 +11,11 @@ Blockly.Blocks["code_decl"] = {
         this.appendDummyInput()
             .appendField("code decl")
             .appendField(new Blockly.FieldTextInput(''), 'CODE');
-        console.log(" ")
+        this.errors = [{name:"checkParseError"}];
+        console.log("")
     },
-    typeblock: [{translatedName: "code declaration"}]
+    typeblock: [{translatedName: "code declaration"}],
+    parseErrorMessage: false
 }
 
 Blockly.Blocks["code_stmt"] = {
@@ -25,8 +27,10 @@ Blockly.Blocks["code_stmt"] = {
             .appendField(new Blockly.FieldTextInput(''), 'CODE');
         this.setPreviousStatement(true);
         this.setNextStatement(true);
+        this.errors = [{name:"checkParseError"}];
     },
-    typeblock: [{translatedName: "code statement"}]
+    typeblock: [{translatedName: "code statement"}],
+    parseErrorMessage: false
 }
 
 Blockly.Blocks["code_expr"] = {
@@ -37,6 +41,8 @@ Blockly.Blocks["code_expr"] = {
             .appendField("code expr")
             .appendField(new Blockly.FieldTextInput(''), 'CODE');
         this.setOutput(true, null);
+        this.errors = [{name:"checkParseError"}];
     },
-    typeblock: [{translatedName: "code expression"}]
+    typeblock: [{translatedName: "code expression"}],
+    parseErrorMessage: false
 }

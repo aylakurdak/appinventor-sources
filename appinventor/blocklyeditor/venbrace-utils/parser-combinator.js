@@ -11,6 +11,12 @@ goog.provide('Blockly.parserCombinator');
 
 Blockly.parserCombinator = {};
 
+// Adding this as a quick and dirty way to track where the parser failed.
+// It stores the unparsed string when zero is called.
+// Of course, we call zero all the time, and then backtrack so just because errorAt
+// has a value doesn't mean that parsing has actually failed.
+Blockly.parserCombinator.errorAt;
+
 /** 
  * Parser constructor. 
  * @constructor
@@ -43,6 +49,9 @@ Blockly.parserCombinator.result = function (a) {
  * @type {Parser}
  */
 Blockly.parserCombinator.zero = new Blockly.parserCombinator.Parser(function (string) {
+    if (!Blockly.parserCombinator.errorAt || Blockly.parserCombinator.errorAt.length > string.length) { // we want our error to go as deep as possible (shortest remaining string)
+		Blockly.parserCombinator.errorAt = string; 
+	}
     return [];
 });
 

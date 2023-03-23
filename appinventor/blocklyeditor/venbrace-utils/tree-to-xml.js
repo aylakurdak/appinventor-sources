@@ -18,7 +18,7 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
     // If we can't make valid App Inventor blocks from this parse tree, abort and return false.
     // This might happen if we call a function or component that doesn't exist,
     // or call a function with the wrong number of args. This is definitely not ideal behavior,
-    // but it's necessary for now, especially with ambiguous parsing (need ot filter unreasonable cases)
+    // but it's necessary for now, especially with ambiguous parsing (need to filter unreasonable cases)
     var aborted = false;
     var abortMessage = "";
 
@@ -373,7 +373,7 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
 
   /* ~~~~~~~~~ Procedure Calls ~~~~~~~~~~ */
 
-  function procCall(children,type) {
+  function procCall(children,type,nextStmts) {
     var workspace = codeBlock.workspace;
     var fname = children[0];
     var args = children[1];
@@ -393,7 +393,8 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
                     "procedures_call"+type,
                     childrenXml,
                     mutation,
-                    [["PROCNAME",fname]]
+                    [["PROCNAME",fname]],
+                    nextStmts
                 );
 
             } else {
@@ -410,13 +411,13 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
     return procCall(children,"return");
   }
 
-  operatorToXml[CALL_NORETURN] = function(children) {
-    return procCall(children,"noreturn");
+  operatorToXml[CALL_NORETURN] = function(children,nextStmts) {
+    return procCall(children,"noreturn",nextStmts);
   }
 
   /* ~~~~~~~~~ Components ~~~~~~~~~~ */
 
-  function componentSetGet(children,setGet) {
+  function componentSetGet(children,setGet,nextStmts) {
     var workspace = codeBlock.workspace;
     var db = workspace.getComponentDatabase();
 
@@ -455,7 +456,8 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
         "component_set_get",
         childrenXml,
         mutation,
-        fields
+        fields,
+        nextStmts // only present for set
     );
   }
 
@@ -463,8 +465,8 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
     return componentSetGet(children,"get")
   }
 
-  operatorToXml[COMPONENT_SET] = function(children) {
-    return componentSetGet(children,"set")
+  operatorToXml[COMPONENT_SET] = function(children,nextStmts) {
+    return componentSetGet(children,"set",nextStmts)
   }
 
   operatorToXml[WHEN] = function(children) {

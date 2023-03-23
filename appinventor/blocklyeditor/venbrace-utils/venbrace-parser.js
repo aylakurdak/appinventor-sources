@@ -7,33 +7,31 @@ goog.require('Blockly.parserCombinator');
 Blockly.VenbraceParser = {};
 
 /**
- * Parses the contents of a code block. Only returns the parses that parse
- * the whole string.
+ * Parses the contents of a code block. Returns an object with 
+ *  
+ *    parses: The parse trees
+ *  
+ *    success: True if parsing was successful
+ *  
+ *    string: The string that was parsed (the contents of the code block)
+ *  
+ *    errorAt: The index of the error. -1 if it was successful.
  */
-Blockly.VenbraceParser.parseToEnd = function(codeblock) {
-    var str = codeblock.getFieldValue('CODE');
-    
-    var parses = Blockly.VenbraceParser.parse(str,codeblock.type);
-    
-    console.log(parses)
-    var fullParses = [];
-    var partialParses = [];
-    for (var i = 0; i < parses.length; i++) {
-        var parse = parses[i];
-        if (parse[1] === "") {
-            fullParses.push(parse[0]);
-        } else {
-            partialParses.push(parse); // collecting this but not using it yet
-                                       // if can't parse to end, need this to give feedback on where the parse failed
-        }
-    }
-    return fullParses;
+Blockly.VenbraceParser.parseCodeBlock = function(codeBlock) {
+    var str = codeBlock.getFieldValue('CODE');
+    var parses = Blockly.VenbraceParser.parse(str,codeBlock.type).map(function(result) {
+        return result[0]; //result = [parseTree,""], we want to discard the ""
+    });
+    var success = parses.length > 0;
+    var errorAt = success ? -1 : (str.length + ("<EOF>".length)) - Blockly.parserCombinator.errorAt.length // Blockly.parserCombinator.errorAt is the string left over when the error happens
+    var parseObj = {
+        "parses":parses,
+        "success":success,
+        "string":str,
+        "errorAt":errorAt
+    };
+    return parseObj;
 }
-
-// Blockly.VenbraceParser.firstParse = function(str) {
-//     var parseTree = Blockly.VenbraceParser.parse(str);
-//     return parseTree.length > 0 ? parseTree[0][0] : parseTree
-// }
 
 /**
  * Parses a string based on whether it comes from a block of type code_expr, code_stmt, or code_decl.
@@ -302,14 +300,14 @@ var createListExpr = KEY.LIST.or(KEY.CREATE_EMPTY_LIST).or(KEY.MAKE_A_LIST).bind
     return argparser.bind(function(elts) {
         return result(["list"].concat(elts));
     });
-})
+});
 
 
 var isListEmpty = KEY.IS_LIST_EMPTY.bind(function() {
     return listExpr.bind(function(ls) {
-        return result(["isListEmpty", ls])
-    })
-})
+        return result(["isListEmpty", ls]);
+    });
+});
 
 var listExprTop = createListExpr;
 
@@ -377,13 +375,12 @@ function leftAssoc(first,rest) {
 
 // right associative
 var expo = identity.bind(function(_) {
-    return prefixMathExpr.or(bracedNode(mathExpr)).bind(function(r1) {
-        return OP.POWER.bind(function(op) {
-            return expo.bind(function(r2) {
-                return result([op,r1,r2])
-            })
-        })
-    }).or(prefixMathExpr.or(bracedNode(mathExpr)))
+    return comprehension(
+        prefixMathExpr.or(bracedNode(mathExpr)),
+        OP.POWER,
+        expo,
+        function(r1,op,r2) {return [op,r1,r2]}
+    ).or(prefixMathExpr.or(bracedNode(mathExpr)));
 })
 
 // Roughly: 
@@ -480,30 +477,17 @@ var procedureCallStmt = KEY.CALL.bind(function(_) {
 
 /* ~~ If Statements ~~ */
 
-var ifDo = KEY.IF.bind(function(_) {
-    return logicExpr.bind(function(cond) {
-        // lenientNode to accept "{then ___}' as well as "then {___}"
-        return lenientNode(opt(KEY.THEN).bind(function(_) { // "then" is optional since we anticipate this to be a common error
-            return stmtSuiteLenient.bind(function(ifBody) {
-                return result([cond,ifBody])
-            })
-        }))
-    })
-});
-
-// this comprehension is identical to the commented out ifDo definition
-// it's wrapped inside an identity.bind to delay evaluation of stmtSuiteLenient defined lower down
-// var ifDo = identity.bind(function(_) {
-//     return comprehension(
-//         KEY.IF,
-//         logicExpr,
-//         opt(KEY.THEN),
-//         stmtSuiteLenient,
-//         function(_,cond,_,ifBody) {
-//             return [cond,ifBody];
-//         }
-//     );
-// })
+// comprehension is wrapped inside an identity.bind to delay evaluation of stmtSuiteLenient defined lower down
+var ifDo = identity.bind(function(_) {
+    return comprehension(
+        KEY.IF,
+        logicExpr,
+        stmtSuiteLenient(KEY.THEN),
+        function(_,cond,ifBody) {
+            return [cond,ifBody];
+        }
+    );
+})
 
 var elseIfDo = KEY.ELSE.bind(function(el) {
     return ifDo.bind(function(elseIfBody){
@@ -511,12 +495,8 @@ var elseIfDo = KEY.ELSE.bind(function(el) {
     })
 });
 
-// var elseIfDo = comprehension(KEY.ELSE,ifDo,function(_,elseIfBody) {
-//     return elseIfBody;
-// })
-
 // elseDo has the restriction that the first statement in its body cannot be
-// and unbraced if statement because this should be treated as an else if
+// an unbraced if statement because this should be treated as an else if
 var elseDo = KEY.ELSE.bind(function(_) {
     var stmtBracedIf = bracedNode(ifStmt).or(stmtNoIf);
     var elseBody = stmtBracedIf.bind(function(stmt1) {
@@ -527,14 +507,15 @@ var elseDo = KEY.ELSE.bind(function(_) {
     return elseBody.or(bracedNode(elseBody))
 });
 
-var ifStmt = ifDo.bind(function(ifBody) {
-    return manyStar(elseIfDo).bind(function(elifDos){
-        return elseDo.plus(identity).bind(function(optElse) {       // elseDo.plus(identity) makes the else optional
-            elifDos = elifDos.length === 0 ? [] : elifDos[0];       // manyStar nests the list so we flatten with elifDos[0]
-            return result(["ifStmt"].concat(ifBody).concat(elifDos).concat(optElse));
-        });
-    })
-});
+var ifStmt = comprehension(
+    ifDo,
+    manyStar(elseIfDo),
+    elseDo.plus(identity),  // elseDo.plus(identity) makes dangling else ambiguous (unlike or() which is deterministic)
+    function(ifBody,elifDos,optElse) {
+        elifDos = elifDos.flat(1);  // manyStar nests the list so we flatten
+        return ["ifStmt"].concat(ifBody).concat(elifDos).concat(optElse);
+    }
+)
 
 // all statements except if - necessary to distinguish "else if" from "else {if...}"
 var stmtNoIf = lenientNode(
@@ -547,8 +528,11 @@ var stmt = stmtNoIf.or(lenientNode(ifStmt));
 var optStmts = manyStar(stmt);
 var stmts = manyPlus(stmt);
 
-var stmtSuiteLenient = stmts.or(bracedNode(stmts))  // allows braces around a sequence of statements
-
+var stmtSuiteLenient = function(leadIn) {
+    return lenientNode(opt(leadIn).bind(function(_) {
+        return lenientNode(stmts);
+    }));
+}
 
 // ************************************************************************** //
 // ****************************** DECLARATIONS ****************************** //
@@ -561,9 +545,8 @@ var eventHandler = comprehension(
     KEY.WHEN,
     LIT.VARNAME,
     event,
-    opt(KEY.DO), // should wrap this and stmts in a lenient node like if then
-    stmts,
-    function(_,component,event,_,stmts) {
+    stmtSuiteLenient(KEY.DO),
+    function(_,component,event,stmts) {
         return ["when",component,event,stmts];
     }
 )
@@ -585,6 +568,7 @@ var topParser = function(p) {
 }
 
 var stringToParse = (str + "<EOF>");
+Blockly.parserCombinator.errorAt = null; // this is a pretty hacky way of tracking the error
 
 if (type === "code_expr") {
     return topParser(expr).parse(stringToParse);

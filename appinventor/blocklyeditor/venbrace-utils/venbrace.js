@@ -17,36 +17,62 @@ Blockly.Venbrace = {};
  * @returns 
  */
 Blockly.Venbrace.convertToBlocks = function(codeBlock) {
-    var parseTrees = Blockly.VenbraceParser.parseToEnd(codeBlock);
+    var parseObj = Blockly.VenbraceParser.parseCodeBlock(codeBlock);
 
+    if (!parseObj.success) {
+        var message = "Could not parse the code. You either \n\
+        1) Have a syntax error, \n\
+        2) Are trying to create App Inventor blocks not yet supported by Venbrace, or \n\
+        3) Are using the wrong kind of code block.\n\
+        Parsing failed at the point shown below:\n\
+        =========================\n"
+        
+        // really should do it at the line breaks, but that's harder
+        var startIndex = parseObj.errorAt - 40;
+        if (startIndex > 0) {
+            startIndex = parseObj.string.slice(startIndex).indexOf(" ");
+        } else {
+            startIndex = 0;
+        }
+        var endIndex = parseObj.errorAt + 40;
+        if (endIndex < parseObj.string.length) {
+            endIndex = parseObj.string.slice(0,endIndex).lastIndexOf(" ");
+        }
+
+        message += parseObj.string.slice(startIndex,parseObj.errorAt-1);
+        message += "#FAILED HERE#-->";
+        message += parseObj.string.slice(parseObj.errorAt-1,endIndex);
+
+        console.log(message);
+        
+        Blockly.Venbrace.handleParsingError(codeBlock, message);
+        return;
+    }
+
+    var parseTrees = parseObj.parses;
     if (parseTrees.length == 1) {
         var xmlstrObj = Blockly.ParseTreeToXml.makeXmlString(parseTrees[0],codeBlock);
         if (xmlstrObj.aborted) {
-            Blockly.Venbrace.handleParsingError(xmlstrObj.str);
+            Blockly.Venbrace.handleParsingError(codeBlock, xmlstrObj.str);
             return;
         }
         
         var xmlstr = xmlstrObj.str;
         var newBlock = Blockly.Venbrace.xmlstrToBlock(xmlstr,codeBlock);
-        if (newBlock) {
-            Blockly.BlocklyEditor.repositionNewlyGeneratedBlock(codeBlock,newBlock);
-            codeBlock.dispose(true, false);
-        }
-    }
-    else if (parseTrees.length > 1) {
-        Blockly.Venbrace.handleAmbiguity(parseTrees, codeBlock);
+        //if (newBlock) {
+        Blockly.BlocklyEditor.repositionNewlyGeneratedBlock(codeBlock,newBlock);
+        codeBlock.dispose(true, false);
+        //}
     }
     else {
-        Blockly.Venbrace.handleParsingError()
-        console.log("Cannot translate text to blocks :(")
-        // create pop up with this message
-    }  
+        Blockly.Venbrace.handleAmbiguity(parseTrees, codeBlock);
+    }
 }
 
 Blockly.Venbrace.xmlstrToBlock = function(xmlstr, codeBlock) {
     try {
         var blockDom = Blockly.Xml.textToDom(xmlstr);
-        var xml = blockDom.firstElementChild; // extra step translating from xml->block due to Blockly bug (probably fixed in the multiline version)
+        var xml = blockDom.firstElementChild; // extra step translating from xml->block due to Blockly weirdness
         var newBlock = /** @type {Blockly.BlockSvg} */ Blockly.Xml.domToBlock(xml, codeBlock.workspace);
         return newBlock;
 
@@ -76,7 +102,7 @@ Blockly.Venbrace.handleAmbiguity = function(parseTrees, codeBlock) {
             var xmlstr = xmlstrObj.str;
             var block = Blockly.Venbrace.xmlstrToBlock(xmlstr, codeBlock);
 
-            if (!block) {
+            if (!block) { // this shouldn't happen
                 continue;
             }
             //numOptions++;
@@ -113,7 +139,7 @@ Blockly.Venbrace.handleAmbiguity = function(parseTrees, codeBlock) {
     populateDialog(dialog);
 
     if (dialog.children.length == 0) { // all parse trees were invalid
-        Blockly.Venbrace.handleParsingError(errorMessage);
+        Blockly.Venbrace.handleParsingError(codeBlock,errorMessage);
     }
     else if (dialog.children.length == 1) { // unambiguous, only 1 parse tree was valid
         dialog.firstElementChild.click();
@@ -132,25 +158,29 @@ Blockly.Venbrace.handleAmbiguity = function(parseTrees, codeBlock) {
     }
 }
 
-Blockly.Venbrace.handleParsingError = function(message) {
-    var dialog = document.createElement("dialog");
-    dialog.className = "parse-dialog";
-    dialog.textContent = "Cannot translate text to blocks.";
-    if (message) {
-        dialog.textContent += message;
-    }
+Blockly.Venbrace.handleParsingError = function(codeBlock,message) {
+    codeBlock.parseErrorMessage = message;
+    codeBlock.workspace.getWarningHandler().checkErrors(codeBlock);
+    
+    // var dialog = document.createElement("dialog");
+    // dialog.className = "parse-dialog";
+    // dialog.textContent = "Cannot translate text to blocks.";
+    // if (message) {
+    //     dialog.textContent += message;
+    // }
 
-    // TODO, give helpful error message
+    // // TODO, give helpful error message
+    // // make this a warning/error on the block, not a popup
 
-    var okButton = document.createElement("button");
-    okButton.textContent = "OK"
-    dialog.appendChild(okButton);
-    okButton.addEventListener("click", function() {
-        dialog.close();
-        dialog.remove();
-    })
+    // var okButton = document.createElement("button");
+    // okButton.textContent = "OK"
+    // dialog.appendChild(okButton);
+    // okButton.addEventListener("click", function() {
+    //     dialog.close();
+    //     dialog.remove();
+    // })
 
-    document.body.appendChild(dialog);
-    dialog.showModal(); 
+    // document.body.appendChild(dialog);
+    // dialog.showModal(); 
 
 }
