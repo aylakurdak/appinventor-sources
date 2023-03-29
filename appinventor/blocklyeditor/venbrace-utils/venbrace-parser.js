@@ -380,7 +380,7 @@ var expo = identity.bind(function(_) {
         OP.POWER,
         expo,
         function(r1,op,r2) {return [op,r1,r2]}
-    ).or(prefixMathExpr.or(bracedNode(mathExpr)));
+    ).plus(prefixMathExpr).plus(bracedNode(mathExpr)); // plus not or
 })
 
 // Roughly: 
@@ -412,13 +412,13 @@ var mathExpr = identity.bind(function(_) {
         ).or(bracedNode(mathExpr))
 })
 
-var prefixMathExpr = lenientNode(includeVars(
+var prefixMathExpr = includeVars(
     LIT.NUMBER
     .or(negExpr)
     .or(sqrtExpr)
     .or(minMaxExpr)
     .or(mathPropertyGetter)
-));
+);
 
 var expr = lenientNode(logicExprTop
     .or(stringExprTop)
