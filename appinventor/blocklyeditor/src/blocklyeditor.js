@@ -261,6 +261,22 @@ Blockly.BlocklyEditor.addConvertToBlockOption = function(myBlock, options) {
   options.push(convertToBlock);
 }
 
+// ayla - for my debugging purposes, only visible in admin
+Blockly.BlocklyEditor.addPrintXMLOption = function(myBlock, options) {
+  if (!window.parent.BlocklyPanel_checkIsAdmin()) {
+    return;
+  }
+
+  var printXml = {enabled: true};
+  printXml.text = "Print XML in Console";
+  printXml.callback = function() {
+    dom = Blockly.Xml.blockToDom(myBlock);
+    console.log("Block DOM:");
+    console.log(dom);
+  }
+  options.push(printXml);
+}
+
 /**
  * Adds extra context menu options to all blocks. Current options include:
  *   - Png Export
@@ -274,6 +290,8 @@ Blockly.Block.prototype.customContextMenu = function(options) {
   Blockly.BlocklyEditor.addGenerateYailOption(this, options);
   Blockly.BlocklyEditor.addDoItOption(this, options);
   Blockly.BlocklyEditor.addClearDoItOption(this, options);
+
+  Blockly.BlocklyEditor.addPrintXMLOption(this, options); // ayla - makes tree-to-xml.js easier
 
   if(this.procCustomContextMenu){
     this.procCustomContextMenu(options);

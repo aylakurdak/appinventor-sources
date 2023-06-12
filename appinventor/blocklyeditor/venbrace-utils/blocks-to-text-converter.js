@@ -2,6 +2,10 @@ goog.provide('Blockly.Blocks.blocksToText');
 
 goog.require('Blockly.Blocks.Utilities');
 
+// This file is an incomplete copy from Karishma Chadha's work. It only contains the 
+// blocks that are currently supported, but as more are added, they can be created or copied over from 
+// https://github.com/fturbak/appinventor-sources/blob/karishma-lyn-tail-rebased-2014-11-03/appinventor/blocklyeditor/code-utils/blocks_to_text_converter.js
+
 Blockly.BlocksToTextConverter = {};
 
 // remember to add blocks to these lists!
@@ -9,12 +13,12 @@ Blockly.BlocksToTextConverter.expressionBlocks = [
     "component_set_get",
     "lexical_variable_get",
     "lists_create_with", "lists_is_empty",
-    "logic_negate", "logic_boolean", "logic_false",
+    "logic_negate", "logic_boolean", "logic_false", "logic_operation",
     "math_number",
     "math_add", "math_multiply", "math_subtract", "math_division", "math_power", "math_divide", "math_on_list",
-    "math_single", "math_abs", "math_neg", "math_round", "math_ceiling", "math_floor",
+    "math_single", "math_abs", "math_neg", "math_round", "math_ceiling", "math_floor", "math_compare",
     "procedures_callreturn",
-    "text"
+    "text", "text_length"
    ];
   
 Blockly.BlocksToTextConverter.statementBlocks = [
@@ -22,6 +26,8 @@ Blockly.BlocksToTextConverter.statementBlocks = [
     "controls_if", 
     "lexical_variable_set",
     "procedures_callnoreturn",
+	"controls_while",
+	"controls_forEach"
   ];
   
 Blockly.BlocksToTextConverter.declarationBlocks = [
@@ -403,10 +409,21 @@ Blockly.BlocksToTextConverter.translate_math_floor = function(element){
 	Blockly.BlocksToTextConverter.translate_math_single(element);
 };
 
+/**** STRING EXPRESIONS ****/
 
 Blockly.BlocksToTextConverter.translate_text = function(element) {
 	Blockly.BlocksToTextConverter.venbraceText += '"' + element.firstElementChild.innerHTML + '"';
 }
+
+Blockly.BlocksToTextConverter.translate_text_length = function (element) {
+	var children = element.children;
+	var value = children.namedItem("VALUE");
+
+	Blockly.BlocksToTextConverter.venbraceText += 'length ';
+	Blockly.BlocksToTextConverter.translateChildExpression(value);
+};
+
+/**** LOGIC EXPRESIONS ****/
 
 Blockly.BlocksToTextConverter.translate_logic_boolean = function(element) {
 	Blockly.BlocksToTextConverter.venbraceText += element.firstElementChild.innerHTML.toLowerCase();
@@ -424,6 +441,19 @@ Blockly.BlocksToTextConverter.translate_logic_negate = function(element){
 
 	Blockly.BlocksToTextConverter.translateChildExpression(item);
 }
+
+Blockly.BlocksToTextConverter.translate_logic_operation = function(element){
+	var children = element.children;
+	var aItem = children.namedItem("A");
+	var bItem = children.namedItem("B");
+	var op = children.namedItem("OP").innerHTML.toLowerCase();
+
+	Blockly.BlocksToTextConverter.translateChildExpression(aItem);
+	Blockly.BlocksToTextConverter.venbraceText += ' ' + op + ' ' ;
+	Blockly.BlocksToTextConverter.translateChildExpression(bItem);
+}
+
+/**** LIST EXPRESIONS ****/
 
 Blockly.BlocksToTextConverter.translate_lists_create_with = function(element){
 	Blockly.BlocksToTextConverter.venbraceText += 'list';
@@ -449,6 +479,8 @@ Blockly.BlocksToTextConverter.translate_lists_is_empty = function(element) {
 	Blockly.BlocksToTextConverter.translateChildExpression(item);
 }
 
+/**** VARIABLE SET/GET ****/
+
 Blockly.BlocksToTextConverter.translate_lexical_variable_get = function(element) {
     Blockly.BlocksToTextConverter.venbraceText += element.firstElementChild.innerHTML;
 }
@@ -461,6 +493,8 @@ Blockly.BlocksToTextConverter.translate_lexical_variable_set = function(element)
     Blockly.BlocksToTextConverter.venbraceText += "set " + varName + " to ";
     Blockly.BlocksToTextConverter.translateChildExpression(value);
 }
+
+/************************************* STATEMENTS ****************************************/
 
 Blockly.BlocksToTextConverter.translate_controls_if = function(element) {
 	var numElse = 0;
@@ -496,6 +530,29 @@ Blockly.BlocksToTextConverter.translate_controls_if = function(element) {
         Blockly.BlocksToTextConverter.translateChildStatement(children.namedItem("ELSE"));
     } 
     
+}
+
+Blockly.BlocksToTextConverter.translate_controls_while = function(element) {
+	var children = element.children;
+	var test = children.namedItem("TEST");
+	var stmts = children.namedItem("DO");
+
+	Blockly.BlocksToTextConverter.venbraceText += "while test "
+	Blockly.BlocksToTextConverter.translateChildExpression(test);
+	Blockly.BlocksToTextConverter.venbraceText += " do "
+	Blockly.BlocksToTextConverter.translateChildStatement(stmts);
+}
+
+Blockly.BlocksToTextConverter.translate_controls_forEach = function(element) {
+	var children = element.children;
+	var list = children.namedItem("LIST");
+	var stmts = children.namedItem("DO");
+	var varName = children.namedItem("VAR").innerHTML;
+
+	Blockly.BlocksToTextConverter.venbraceText += "for each " + varName + " in list ";
+	Blockly.BlocksToTextConverter.translateChildExpression(list);
+	Blockly.BlocksToTextConverter.venbraceText += " do "
+	Blockly.BlocksToTextConverter.translateChildStatement(stmts);
 }
 
 Blockly.BlocksToTextConverter.translate_procedures_call = function(element){

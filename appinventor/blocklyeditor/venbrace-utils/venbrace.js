@@ -19,7 +19,8 @@ Blockly.Venbrace = {};
 Blockly.Venbrace.convertToBlocks = function(codeBlock) {
     var parseObj = Blockly.VenbraceParser.parseCodeBlock(codeBlock);
 
-    if (!parseObj.success) {
+    /*  case 1: syntax error, parse failed */
+    if (!parseObj.success) { 
         var message = "Could not parse the code. You either \n\
         1) Have a syntax error, \n\
         2) Are trying to create App Inventor blocks not yet supported by Venbrace, or \n\
@@ -50,9 +51,11 @@ Blockly.Venbrace.convertToBlocks = function(codeBlock) {
     }
 
     var parseTrees = parseObj.parses;
-    if (parseTrees.length == 1) {
+
+    /* case 2: parse succeeded, unambiguous */
+    if (parseTrees.length == 1) { 
         var xmlstrObj = Blockly.ParseTreeToXml.makeXmlString(parseTrees[0],codeBlock);
-        if (xmlstrObj.aborted) {
+        if (xmlstrObj.aborted) {  // could not convert to XML due to function or component namespace error
             Blockly.Venbrace.handleParsingError(codeBlock, xmlstrObj.str);
             return;
         }
@@ -64,6 +67,7 @@ Blockly.Venbrace.convertToBlocks = function(codeBlock) {
         codeBlock.dispose(true, false);
         //}
     }
+    /* case 3: parse succeeded, ambiguous */
     else {
         Blockly.Venbrace.handleAmbiguity(parseTrees, codeBlock);
     }
@@ -78,13 +82,16 @@ Blockly.Venbrace.xmlstrToBlock = function(xmlstr, codeBlock) {
 
     }
     catch (error) {
+        console.log("In venbrace.js");
         console.log("Error in the XML string.");
-        console.log("Parse tree:", parseTree);
         console.log("Xmlstr:", xmlstr);
         console.log(error);
     } 
 }
 
+/**
+ * Converts all parse trees to blocks, displays a dialog of blocks for the user to choose.
+ */
 Blockly.Venbrace.handleAmbiguity = function(parseTrees, codeBlock) {
 
     //var numOptions = 0;
@@ -158,6 +165,9 @@ Blockly.Venbrace.handleAmbiguity = function(parseTrees, codeBlock) {
     }
 }
 
+/**
+ * Adds error message to a code block that can't be converted to blocks.
+ */
 Blockly.Venbrace.handleParsingError = function(codeBlock,message) {
     codeBlock.parseErrorMessage = message;
     codeBlock.workspace.getWarningHandler().checkErrors(codeBlock);

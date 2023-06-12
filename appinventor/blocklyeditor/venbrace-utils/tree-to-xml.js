@@ -56,7 +56,8 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
             return operatorToXml[first](rest);
           }
       } catch(error) {
-        console.log("first:",first)
+        console.log("In tree-to-xml.js:")
+        console.log("failed on node:",first)
         throw(error);
       }
       
@@ -186,6 +187,12 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
       TIMES = '*',
       DIVIDE = '/',
       POWER = '^',
+      EQ = '=',
+      NEQ = '!=',
+      LT = '<',
+      LTE = '<=',
+      GT = '>',
+      GTE = '>=',
       LIST = 'list',
       IF = 'ifStmt',
       STR = 'str',
@@ -198,7 +205,12 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
       CALL_NORETURN = 'call stmt',
       COMPONENT_GET = 'component get',
       COMPONENT_SET = 'component set',
-      WHEN = 'when';
+      WHEN = 'when',
+      STRLEN = 'strLen',
+      AND = 'and',
+      OR = 'or',
+      WHILE = 'while',
+      FOR_EACH_IN_LIST = 'forEachInList';
   
   var operatorToXml = {};
 
@@ -283,6 +295,42 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
         childrenXml);
   };
 
+  function mathCompare(op, children) {
+    var childrenXml = valChildXml("A",children[0]) 
+        + valChildXml("B",children[1]);
+    
+    return makeBlockXmlString(
+      "math_compare",
+      childrenXml,
+      null,
+      [['OP',op]]
+    );
+  }
+
+  operatorToXml[EQ] = function(children) {
+    return mathCompare('EQ', children);
+  }
+
+  operatorToXml[NEQ] = function(children) {
+    return mathCompare('NEQ', children);
+  }
+
+  operatorToXml[LT] = function(children) {
+    return mathCompare('LT', children);
+  }
+
+  operatorToXml[LTE] = function(children) {
+    return mathCompare('LTE', children);
+  }
+
+  operatorToXml[GT] = function(children) {
+    return mathCompare('GT', children);
+  }
+
+  operatorToXml[GTE] = function(children) {
+    return mathCompare('GTE', children);
+  }
+
   /* ~~~~~~~~~ Lists ~~~~~~~~~~ */
   
   operatorToXml[LIST] = function(children) {
@@ -310,6 +358,13 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
         [["TEXT",text]]
     );
   };
+
+  operatorToXml[STRLEN] = function(children) {
+    return makeBlockXmlString(
+      "text_length",
+      valChildXml("VALUE", children[0])
+    );
+  };
   
   /* ~~~~~~~~~ Logic ~~~~~~~~~~ */
 
@@ -318,6 +373,28 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
         "logic_negate",
         valChildXml("BOOL",children[0])
     );
+  };
+
+  // OR and AND
+  // currently only allows 2 arguments since the parser
+  // will always parse as two args
+  function logicOperator(op, children) {
+    var childrenXml = valChildXml("A",children[0]) 
+      + valChildXml("B",children[1]);
+
+    return makeBlockXmlString(
+        "logic_operation",
+        childrenXml,
+        {"items":2}, // always 2 args
+        [["OP", op]]);
+  }
+
+  operatorToXml[AND] = function(children) {
+    return logicOperator("AND", children);
+  };
+
+  operatorToXml[OR] = function(children) {
+    return logicOperator("OR", children);
   };
 
   /* ~~~~~~~~~ Variables ~~~~~~~~~~ */
@@ -370,6 +447,36 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
         nextStmts
     );
   };
+
+  operatorToXml[WHILE] = function(children, nextStmts) {
+    var childrenXml = valChildXml('TEST',children[0])
+      +  stmtChildXml('DO', children[1]);
+
+    return makeBlockXmlString(
+      "controls_while",
+      childrenXml,
+      null,
+      null,
+      nextStmts
+    );
+  }
+
+  operatorToXml[FOR_EACH_IN_LIST] = function(children, nextStmts) {
+    var varname = children[0];
+    var listExpr = children[1];
+    var stmts = children[2];
+
+    var childrenXml = valChildXml('LIST', listExpr)
+      + stmtChildXml('DO', stmts);
+    
+    return makeBlockXmlString(
+      "controls_forEach",
+      childrenXml,
+      null,
+      [["VAR", varname]],
+      nextStmts
+    )
+  }
 
   /* ~~~~~~~~~ Procedure Calls ~~~~~~~~~~ */
 

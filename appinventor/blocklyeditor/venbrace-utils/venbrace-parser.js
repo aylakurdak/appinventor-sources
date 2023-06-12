@@ -6,6 +6,8 @@ goog.require('Blockly.parserCombinator');
 
 Blockly.VenbraceParser = {};
 
+Blockly.VenbraceParser.eofSymbol = "#EOF#";
+
 /**
  * Parses the contents of a code block. Returns an object with 
  *  
@@ -23,7 +25,7 @@ Blockly.VenbraceParser.parseCodeBlock = function(codeBlock) {
         return result[0]; //result = [parseTree,""], we want to discard the ""
     });
     var success = parses.length > 0;
-    var errorAt = success ? -1 : (str.length + ("<EOF>".length)) - Blockly.parserCombinator.errorAt.length // Blockly.parserCombinator.errorAt is the string left over when the error happens
+    var errorAt = success ? -1 : (str.length + (Blockly.VenbraceParser.eofSymbol.length)) - Blockly.parserCombinator.errorAt.length // Blockly.parserCombinator.errorAt is the string left over when the error happens
     var parseObj = {
         "parses":parses,
         "success":success,
@@ -72,7 +74,7 @@ var optspaces = spaces.or(identity);
 
 var separator = sat(function(x) {
     // the / was previously before the ^ which broke everything for some reason
-    return "(){}[]+-/*^'\".<".indexOf(x) >= 0; // all available App Inventor symbols
+    return "(){}[]+-/*^'\".<=>!#".indexOf(x) >= 0; // all available App Inventor symbols
 }).bind(function(x) {
     return reShift(x);
 });
@@ -130,10 +132,21 @@ var KEYWORD_STR = {
     VISIBLE: ".Visible",
     RADIUS: ".Radius",
     SPEED: ".Speed",
+    HEIGHT: ".Height",
+    WIDTH: ".Width",
     ON: ".On",
     ENABLED: ".Enabled",
     CHECKED: ".Checked",
-    TEXT: ".Text"
+    TEXT: ".Text",
+    SQUARE_ROOT: ["square","root"],
+    SQRT: "sqrt",
+    OR: "or",
+    AND: "and",
+    LENGTH: "length",
+    WHILE: "while",
+    TEST: "test",
+    FOREACH: ["for", "each"],
+    IN: "in"
 };
 
 // The tokenized version of the keywords - i.e. keyword parsers
@@ -197,10 +210,16 @@ var OP = {
     MINUS: sym("-"),
     TIMES: sym("*"),
     DIVIDE: sym("/"),
-    POWER: sym("^")
+    POWER: sym("^"),
+    GT: sym(">"),
+    GTE: sym(">="),
+    LT: sym("<"),
+    LTE: sym("<="),
+    EQ: sym("="),
+    NEQ: sym("!=")
 };
 
-var EOF = keyword("<EOF>");
+var EOF = keyword(Blockly.VenbraceParser.eofSymbol);
 
 
 /* ~~ Literals ~~ */
@@ -227,7 +246,7 @@ var LIT = {
 
 var getVar = comprehension(
     opt(KEY.GET),
-    LIT.VARNAME,
+    lenientNode(LIT.VARNAME),
     function(_,varName) {
         return ['variable get', varName];
     }
@@ -247,7 +266,9 @@ var logicProperty = KEY.CHECKED
 
 var mathProperty = KEY.RADIUS
     .or(KEY.SPEED)
-    .or(KEY.TEXT);
+    .or(KEY.TEXT)
+    .or(KEY.HEIGHT)
+    .or(KEY.WIDTH);
 
 var stringProperty = KEY.TEXT;
 
@@ -267,7 +288,7 @@ var stringPropertyGetter = getComponent(stringProperty);
 
 
 // vars and procedure calls can be any type, so should be allowed in any type of expression
-function includeVars(p) {
+function includeUntyped(p) {
     return p.or(procedureCallExpr).or(getVar).or(emptySlot);
 }
 
@@ -281,9 +302,16 @@ var string = QUOTE["'"].or(QUOTE['"']).bind(function(quoteMark) {
     });
 });
 
-var stringExprTop = string.or(stringPropertyGetter);
+var strLen = KEY.LENGTH.bind(function(_) {
+    return stringExpr.bind(function(str) {
+        return result(["strLen", str]);
+    });
+})
 
-var stringExpr = lenientNode(includeVars(stringExprTop));
+var stringExprTop = string
+    .or(stringPropertyGetter);
+
+var stringExpr = lenientNode(includeUntyped(stringExprTop));
 
 
 /* ~~ Lists ~~ */
@@ -293,7 +321,13 @@ var createListExpr = KEY.LIST.or(KEY.CREATE_EMPTY_LIST).or(KEY.MAKE_A_LIST).bind
     if (prefix === "list") {    // "list" can have any number of elements
         argparser = optExprs;
     } else if (prefix === "makealist") {  // "make a list" must have at least one element
-        argparser = exprs;
+        argparser = comprehension(
+            opt(expr),
+            optExprs,
+            function(expr1,rest) {
+                return expr1.length === 0 ? [] : [expr1].concat(rest);
+            }
+        );
     } else {                    // "create empty list" has no elements
         argparser = identity;
     }
@@ -303,7 +337,7 @@ var createListExpr = KEY.LIST.or(KEY.CREATE_EMPTY_LIST).or(KEY.MAKE_A_LIST).bind
 });
 
 
-var isListEmpty = KEY.IS_LIST_EMPTY.bind(function() {
+var isListEmpty = KEY.IS_LIST_EMPTY.bind(function(_) {
     return listExpr.bind(function(ls) {
         return result(["isListEmpty", ls]);
     });
@@ -311,7 +345,7 @@ var isListEmpty = KEY.IS_LIST_EMPTY.bind(function() {
 
 var listExprTop = createListExpr;
 
-var listExpr = lenientNode(includeVars(listExprTop));
+var listExpr = lenientNode(includeUntyped(listExprTop));
 
 /* ~~ Logic ~~ */
 
@@ -323,12 +357,47 @@ var notExpr = KEY.NOT.bind(function(_) {
     });
 });
 
+// logicSimple := all logic operators except OR and AND
+var logicSimple = identity.bind(function(_) {
+    return includeUntyped(
+        bool
+        .or(notExpr)
+        .or(isListEmpty)
+        .or(logicPropertyGetter)
+        .or(mathCompare)
+    );
+})
+
+// logicTerm := logicSimple AND logicSimple
+var logicTerm = identity.bind(function(_) {
+    return comprehension(
+        logicSimple,
+        manyStar(KEY.AND.bind(function(_) {
+            return logicSimple.bind(function(r2) {
+                return result(["and", r2])
+            })
+        })),
+        leftAssoc
+    )
+})
+
+// logicExpr := logicTerm OR logicTerm
+var logicExpr = identity.bind(function(_) {
+    return comprehension(
+        logicTerm,
+        manyStar(KEY.OR.bind(function(_) {
+            return logicTerm.bind(function(r2) {
+                return result(["or", r2])
+            })
+        })),
+        leftAssoc
+    ).or(bracedNode(logicExpr))
+})
+
 var logicExprTop = bool
     .or(notExpr)
     .or(isListEmpty)
     .or(logicPropertyGetter);
-
-var logicExpr = lenientNode(includeVars(logicExprTop));
 
 /* ~~ Math ~~ */
 
@@ -338,7 +407,7 @@ var negExpr = KEY.NEG.bind(function(_) {
     })
 })
 
-var sqrtExpr = KEY.SQRT.bind(function(_) {
+var sqrtExpr = KEY.SQUARE_ROOT.or(KEY.SQRT).bind(function(_) {
     return mathExpr.bind(function(e) {
         return result(["sqrt",e]);
     })
@@ -359,6 +428,19 @@ var minMaxExpr = (KEY.MIN.or(KEY.MAX)).bind(function(op) {
     ).bind(function(args) {
         return result([op].concat(args));
     });
+});
+
+var comparisonOps = OP.EQ.or(OP.NEQ)
+    .or(OP.GT).or(OP.GTE)
+    .or(OP.LT).or(OP.LTE);
+
+var mathCompare = identity.bind(function(_) {
+    return comprehension(
+        mathExpr,
+        comparisonOps,
+        mathExpr,
+        function(ex1,op,ex2) {return [op,ex1,ex2];}
+    )
 });
 
 // leftAssoc(4,[['*',3],['/',2]]) => ['/',['*',4,3],2]
@@ -402,28 +484,32 @@ var term = identity.bind(function(_) {
 // E := T + T | T - T | T | (E) | E
 var mathExpr = identity.bind(function(_) {
     return comprehension(
-            term,
-            manyStar(OP.PLUS.or(OP.MINUS).bind(function(op) {
-                return term.bind(function(r2) {
-                    return result([op, r2])
-                })
-            })),
-            leftAssoc
-        ).or(bracedNode(mathExpr))
+        term,
+        manyStar(OP.PLUS.or(OP.MINUS).bind(function(op) {
+            return term.bind(function(r2) {
+                return result([op, r2])
+            })
+        })),
+        leftAssoc
+    ).or(bracedNode(mathExpr))
 })
 
-var prefixMathExpr = includeVars(
+var prefixMathExpr = includeUntyped(
     LIT.NUMBER
     .or(negExpr)
     .or(sqrtExpr)
     .or(minMaxExpr)
     .or(mathPropertyGetter)
+    .or(strLen)
 );
 
-var expr = lenientNode(logicExprTop
-    .or(stringExprTop)
+/* ~~ All Expressions ~~ */
+
+var expr = lenientNode(
+    stringExprTop
     .or(listExprTop)
-    .or(mathExpr) // var and procedure calls are captured here, which means mathExpr needs to be last
+    .or(logicExpr) // var references and procedure calls are captured by logicExpr and mathExpr (will this cause problems?)
+    .or(mathExpr) 
 );
 
 var optExprs = manyStar(expr);
@@ -500,9 +586,13 @@ var elseIfDo = KEY.ELSE.bind(function(el) {
 var elseDo = KEY.ELSE.bind(function(_) {
     var stmtBracedIf = bracedNode(ifStmt).or(stmtNoIf);
     var elseBody = stmtBracedIf.bind(function(stmt1) {
-        return optStmts.bind(function(restStmts) {
-            return result([[stmt1].concat(restStmts)])
-        })
+        if (stmt1[0]==="emptySlot") {
+            return result([[stmt1]]); //double nested because tree-to-xml expects stmt suites
+        } else {
+            return optStmts.bind(function(restStmts) {
+                return result([[stmt1].concat(restStmts)])
+            });
+        }
     });
     return elseBody.or(bracedNode(elseBody))
 });
@@ -517,16 +607,58 @@ var ifStmt = comprehension(
     }
 )
 
-// all statements except if - necessary to distinguish "else if" from "else {if...}"
-var stmtNoIf = lenientNode(
+/* ~~ Loops ~~ */
+
+var whileLoop = identity.bind(function(_) {
+    return comprehension(
+        KEY.WHILE,
+        opt(KEY.TEST),
+        logicExpr,
+        stmtSuiteLenient(KEY.DO),
+        function(_,_,test,stmts) {
+            return ["while",test,stmts];
+        }
+    )
+})
+
+var forEachInList = identity.bind(function(_) {
+    return comprehension(
+        KEY.FOREACH,
+        LIT.VARNAME,
+        opt(KEY.IN),
+        opt(KEY.LIST),
+        listExpr,
+        stmtSuiteLenient(KEY.DO),
+        function(_,itemVar,_,_,list,stmts) {
+            return ["forEachInList", itemVar, list, stmts];
+        }
+    )
+})
+
+/* ~~ All Statements ~~ */
+
+// all statements that don't need to be handled separately
+// excludes empty slots since a statement suite should not have empty slots
+// excludes ifStmt which needs special handling in else clauses to avoid else if collision
+var stmtBase = lenientNode(
     setter
-    .or(emptySlot)
+    .or(whileLoop)
+    .or(forEachInList)
     .or(procedureCallStmt)
 );
-var stmt = stmtNoIf.or(lenientNode(ifStmt));
 
-var optStmts = manyStar(stmt);
-var stmts = manyPlus(stmt);
+var stmtNoIf = stmtBase.or(lenientNode(emptySlot));
+var stmtNoEmpty = stmtBase.or(lenientNode(ifStmt));
+
+var stmt = stmtBase.or(lenientNode(
+    ifStmt
+    .or(emptySlot)
+));
+
+var stmts = manyPlus(stmtNoEmpty).or(lenientNode(emptySlot).bind(function(empty) {
+    return result([empty]);
+}));
+var optStmts = opt(stmts);
 
 var stmtSuiteLenient = function(leadIn) {
     return lenientNode(opt(leadIn).bind(function(_) {
@@ -553,8 +685,11 @@ var eventHandler = comprehension(
 
 var decl = lenientNode(eventHandler);
 
+// ************************************************************************** //
 
 // ************ Parsing Happens Here ************ //
+
+var DEBUG = 1;
 
 var topParser = function(p) {
     return comprehension(
@@ -567,17 +702,36 @@ var topParser = function(p) {
     );
 }
 
-var stringToParse = (str + "<EOF>");
+var stringToParse = (str + Blockly.VenbraceParser.eofSymbol);
 Blockly.parserCombinator.errorAt = null; // this is a pretty hacky way of tracking the error
 
+var parseTrees;
 if (type === "code_expr") {
-    return topParser(expr).parse(stringToParse);
+    parseTrees = topParser(expr).parse(stringToParse);
 } else if (type === "code_stmt") {
-    return topParser(stmt).parse(stringToParse);
+    parseTrees = topParser(stmt).parse(stringToParse);
 } else if (type === "code_decl") {
-    return topParser(decl).parse(stringToParse);
+    parseTrees = topParser(decl).parse(stringToParse);
 } else {
     console.log("That's not a code block");
+    return;
 }
+
+if (DEBUG == 1) {
+    console.log("In venbrace-parser.js:")
+
+    pretty = ""
+    for (var i = 0; i < parseTrees.length; i++) {
+        pretty += "\t" + JSON.stringify(parseTrees[i]) + "\n";
+    }
+    if (pretty.length == 0) {
+        pretty = "\tPARSE FAILED\n"
+        console.log("Error at:", Blockly.parserCombinator.errorAt);
+    }
+    console.log("Input:\t" + stringToParse)
+    console.log("Output:" + pretty)
+}
+
+return parseTrees;
 
 }
