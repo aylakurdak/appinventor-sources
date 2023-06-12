@@ -201,6 +201,7 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
       VAR_SET = 'variable set',
       NOT = 'not',
       IS_LIST_EMPTY = "isListEmpty",
+      LENGTH_OF_LIST = "lengthOfList",
       CALL_RETURN = 'call expr',
       CALL_NORETURN = 'call stmt',
       COMPONENT_GET = 'component get',
@@ -343,6 +344,13 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
   operatorToXml[IS_LIST_EMPTY] = function(children) {
     return makeBlockXmlString(
         "lists_is_empty",
+        valChildXml("LIST",children[0])
+    );
+  };
+
+  operatorToXml[LENGTH_OF_LIST] = function(children) {
+    return makeBlockXmlString(
+        "lists_length",
         valChildXml("LIST",children[0])
     );
   };

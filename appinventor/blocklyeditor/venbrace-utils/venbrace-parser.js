@@ -126,6 +126,7 @@ var KEYWORD_STR = {
     WHEN: "when",
     DO: "do",
     IS_LIST_EMPTY: ["is","list","empty?"],
+    LENGTH_OF_LIST: ["length","of","list"],
     CALL: "call",
     CLICK: ".Click",  // will probably want to separate the dot
     CHANGED: ".Changed",
@@ -308,11 +309,11 @@ var strLen = KEY.LENGTH.bind(function(_) {
     });
 })
 
-var stringExprTop = string
-    .or(stringPropertyGetter);
+// stringPropertyGetter only includes .Text at the moment
+// .Text can also be math, which causes conflict
+var stringExprTop = string//.or(stringPropertyGetter);
 
-var stringExpr = lenientNode(includeUntyped(stringExprTop));
-
+var stringExpr = lenientNode(includeUntyped(stringExprTop.or(stringPropertyGetter)));
 
 /* ~~ Lists ~~ */
 
@@ -343,6 +344,12 @@ var isListEmpty = KEY.IS_LIST_EMPTY.bind(function(_) {
     });
 });
 
+var lengthOfList = KEY.LENGTH_OF_LIST.seq(opt(KEY.LIST)).bind(function(_) {
+    return listExpr.bind(function(ls) {
+        return result(["lengthOfList", ls]);
+    });
+});
+
 var listExprTop = createListExpr;
 
 var listExpr = lenientNode(includeUntyped(listExprTop));
@@ -359,13 +366,12 @@ var notExpr = KEY.NOT.bind(function(_) {
 
 // logicSimple := all logic operators except OR and AND
 var logicSimple = identity.bind(function(_) {
-    return includeUntyped(
-        bool
+    return includeUntyped(bool
         .or(notExpr)
         .or(isListEmpty)
         .or(logicPropertyGetter)
         .or(mathCompare)
-    );
+    ).or(bracedNode(logicExpr));
 })
 
 // logicTerm := logicSimple AND logicSimple
@@ -378,8 +384,8 @@ var logicTerm = identity.bind(function(_) {
             })
         })),
         leftAssoc
-    )
-})
+    );
+});
 
 // logicExpr := logicTerm OR logicTerm
 var logicExpr = identity.bind(function(_) {
@@ -391,13 +397,19 @@ var logicExpr = identity.bind(function(_) {
             })
         })),
         leftAssoc
-    ).or(bracedNode(logicExpr))
-})
+    )
+});
 
-var logicExprTop = bool
-    .or(notExpr)
-    .or(isListEmpty)
-    .or(logicPropertyGetter);
+// excludes untyped
+var logicExprTop = logicExpr.bind(function(ex) {
+    var untyped = ["variable get", "emptySlot", "call expr"]
+    if (ex.length > 0 && untyped.indexOf(ex[0]) >= 0) {
+        return zero; // if an untyped expr is the only thing that was parsed, fail
+    }
+    else {
+        return result(ex);
+    }
+}) 
 
 /* ~~ Math ~~ */
 
@@ -500,6 +512,7 @@ var prefixMathExpr = includeUntyped(
     .or(sqrtExpr)
     .or(minMaxExpr)
     .or(mathPropertyGetter)
+    .or(lengthOfList)
     .or(strLen)
 );
 
@@ -508,8 +521,8 @@ var prefixMathExpr = includeUntyped(
 var expr = lenientNode(
     stringExprTop
     .or(listExprTop)
-    .or(logicExpr) // var references and procedure calls are captured by logicExpr and mathExpr (will this cause problems?)
-    .or(mathExpr) 
+    .or(logicExprTop)  
+    .or(mathExpr) // untyped exprs (var refs, proc calls, empty slots) included in mathExpr, so it must come last
 );
 
 var optExprs = manyStar(expr);

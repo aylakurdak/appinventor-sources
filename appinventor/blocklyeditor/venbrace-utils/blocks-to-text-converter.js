@@ -12,7 +12,7 @@ Blockly.BlocksToTextConverter = {};
 Blockly.BlocksToTextConverter.expressionBlocks = [
     "component_set_get",
     "lexical_variable_get",
-    "lists_create_with", "lists_is_empty",
+    "lists_create_with", "lists_is_empty", "lists_length",
     "logic_negate", "logic_boolean", "logic_false", "logic_operation",
     "math_number",
     "math_add", "math_multiply", "math_subtract", "math_division", "math_power", "math_divide", "math_on_list",
@@ -475,6 +475,15 @@ Blockly.BlocksToTextConverter.translate_lists_is_empty = function(element) {
 	var item = children.namedItem("LIST");
 
 	Blockly.BlocksToTextConverter.venbraceText += "is list empty? ";
+
+	Blockly.BlocksToTextConverter.translateChildExpression(item);
+}
+
+Blockly.BlocksToTextConverter.translate_lists_length = function(element) {
+	var children = element.children;
+	var item = children.namedItem("LIST");
+
+	Blockly.BlocksToTextConverter.venbraceText += "length of list ";
 
 	Blockly.BlocksToTextConverter.translateChildExpression(item);
 }
