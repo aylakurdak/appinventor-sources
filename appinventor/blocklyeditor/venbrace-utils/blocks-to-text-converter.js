@@ -383,7 +383,9 @@ Blockly.BlocksToTextConverter.translate_math_single = function(element){
 		op = 'log';
 	} else if(op === "exp"){
 		op = 'e^';
-	} //no else case, op should remain the same for abs, round, ceiling, and floor
+	} else if(op === "exp"){
+		op = 'absolute';
+	}//no else case, op should remain the same for abs, round, ceiling, and floor
 
 	Blockly.BlocksToTextConverter.venbraceText += op + ' ';
 	Blockly.BlocksToTextConverter.translateChildExpression(exprItem);

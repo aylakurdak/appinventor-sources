@@ -182,6 +182,7 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
       MIN = 'min',
       NEG = 'neg',
       SQRT = 'sqrt',
+      ABSOLUTE = 'absolute',
       PLUS = '+',
       MINUS = '-',
       TIMES = '*',
@@ -251,6 +252,14 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
         valChildXml("NUM",children[0]),
         null,
         [["OP","ROOT"]]);
+  };
+
+  operatorToXml[ABSOLUTE] = function(children) {
+    return makeBlockXmlString(
+        "math_single",
+        valChildXml("NUM",children[0]),
+        null,
+        [["OP","ABS"]]);
   };
   
   operatorToXml[PLUS] = function(children) {

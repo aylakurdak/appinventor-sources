@@ -109,7 +109,9 @@ var KEYWORD_STR = {
     MIN: "min",
     MAX: "max",
     NEG: "neg",
-    SQRT: ["square","root"],
+    SQUARE_ROOT: ["square","root"],
+    SQRT: "sqrt",
+    ABSOLUTE: "absolute",
     SET: "set",
     TO: "to",
     GET: "get",
@@ -139,8 +141,6 @@ var KEYWORD_STR = {
     ENABLED: ".Enabled",
     CHECKED: ".Checked",
     TEXT: ".Text",
-    SQUARE_ROOT: ["square","root"],
-    SQRT: "sqrt",
     OR: "or",
     AND: "and",
     LENGTH: "length",
@@ -243,6 +243,15 @@ var LIT = {
 // ****************************** EXPRESSIONS ****************************** //
 // ************************************************************************* //
 
+// helper for prefixed expressions with one operand
+function prefixSingleExpr(prefixParser, exprParser, nodeName) {
+    return comprehension(
+        prefixParser,
+        exprParser,
+        function(_, ex) { return [nodeName, ex]; }
+    );
+}
+
 /* ~~ Variables, Components, & Procedure Calls ~~ */
 
 var getVar = comprehension(
@@ -303,10 +312,8 @@ var string = QUOTE["'"].or(QUOTE['"']).bind(function(quoteMark) {
     });
 });
 
-var strLen = KEY.LENGTH.bind(function(_) {
-    return stringExpr.bind(function(str) {
-        return result(["strLen", str]);
-    });
+var strLen = identity.bind(function(_) {
+    return prefixSingleExpr(KEY.LENGTH, stringExpr, "strLen");
 })
 
 // stringPropertyGetter only includes .Text at the moment
@@ -338,17 +345,13 @@ var createListExpr = KEY.LIST.or(KEY.CREATE_EMPTY_LIST).or(KEY.MAKE_A_LIST).bind
 });
 
 
-var isListEmpty = KEY.IS_LIST_EMPTY.bind(function(_) {
-    return listExpr.bind(function(ls) {
-        return result(["isListEmpty", ls]);
-    });
-});
+var isListEmpty = identity.bind(function(_) {
+    return prefixSingleExpr(KEY.IS_LIST_EMPTY.seq(KEY.LIST.plus(identity)), listExpr, "isListEmpty");
+})
 
-var lengthOfList = KEY.LENGTH_OF_LIST.seq(opt(KEY.LIST)).bind(function(_) {
-    return listExpr.bind(function(ls) {
-        return result(["lengthOfList", ls]);
-    });
-});
+var lengthOfList = identity.bind(function(_) {
+    return prefixSingleExpr(KEY.LENGTH_OF_LIST.seq(KEY.LIST.plus(identity)), listExpr, "lengthOfList");
+})
 
 var listExprTop = createListExpr;
 
@@ -358,10 +361,8 @@ var listExpr = lenientNode(includeUntyped(listExprTop));
 
 var bool = KEY.TRUE.or(KEY.FALSE);
 
-var notExpr = KEY.NOT.bind(function(_) {
-    return logicExpr.bind(function(x) {
-        return result(["not",x]);
-    });
+var notExpr = identity.bind(function(_) {
+    return prefixSingleExpr(KEY.NOT, logicExpr, "not");
 });
 
 // logicSimple := all logic operators except OR and AND
@@ -413,17 +414,17 @@ var logicExprTop = logicExpr.bind(function(ex) {
 
 /* ~~ Math ~~ */
 
-var negExpr = KEY.NEG.bind(function(_) {
-    return mathExpr.bind(function(e) {
-        return result(["neg",e])
-    })
-})
+var negExpr = identity.bind(function(_) {
+    return prefixSingleExpr(KEY.NEG, mathExpr, "neg");
+});
 
-var sqrtExpr = KEY.SQUARE_ROOT.or(KEY.SQRT).bind(function(_) {
-    return mathExpr.bind(function(e) {
-        return result(["sqrt",e]);
-    })
-})
+var sqrtExpr = identity.bind(function(_) {
+    return prefixSingleExpr(KEY.SQUARE_ROOT.or(KEY.SQRT), mathExpr, "sqrt");
+});
+
+var absoluteExpr = identity.bind(function(_) {
+    return prefixSingleExpr(KEY.ABSOLUTE, mathExpr, "absolute");
+});
 
 var minMaxExpr = (KEY.MIN.or(KEY.MAX)).bind(function(op) {
     // having two optional expressions before manyStar forces it to take at least 2 arguments if it can
@@ -443,8 +444,8 @@ var minMaxExpr = (KEY.MIN.or(KEY.MAX)).bind(function(op) {
 });
 
 var comparisonOps = OP.EQ.or(OP.NEQ)
-    .or(OP.GT).or(OP.GTE)
-    .or(OP.LT).or(OP.LTE);
+    .or(OP.GTE).or(OP.GT)
+    .or(OP.LTE).or(OP.LT);
 
 var mathCompare = identity.bind(function(_) {
     return comprehension(
@@ -510,6 +511,7 @@ var prefixMathExpr = includeUntyped(
     LIT.NUMBER
     .or(negExpr)
     .or(sqrtExpr)
+    .or(absoluteExpr)
     .or(minMaxExpr)
     .or(mathPropertyGetter)
     .or(lengthOfList)
@@ -638,8 +640,8 @@ var forEachInList = identity.bind(function(_) {
     return comprehension(
         KEY.FOREACH,
         LIT.VARNAME,
-        opt(KEY.IN),
-        opt(KEY.LIST),
+        KEY.IN,
+        KEY.LIST,
         listExpr,
         stmtSuiteLenient(KEY.DO),
         function(_,itemVar,_,_,list,stmts) {
@@ -671,7 +673,7 @@ var stmt = stmtBase.or(lenientNode(
 var stmts = manyPlus(stmtNoEmpty).or(lenientNode(emptySlot).bind(function(empty) {
     return result([empty]);
 }));
-var optStmts = opt(stmts);
+var optStmts = stmts.plus(identity);
 
 var stmtSuiteLenient = function(leadIn) {
     return lenientNode(opt(leadIn).bind(function(_) {
