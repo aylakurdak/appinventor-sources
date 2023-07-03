@@ -39,7 +39,8 @@ Blockly.BlocksToTextConverter.atomicBlocks = [
 	"logic_boolean",
     "logic_false",
     "text",
-    "lexical_variable_get"
+    "lexical_variable_get",
+	"component_set_get" // get is atomic
 ];
 
 Blockly.BlocksToTextConverter.venbraceText;
@@ -70,12 +71,27 @@ Blockly.BlocksToTextConverter.checkEmptySockets = function(block){
 	}
 };
 
+Blockly.BlocksToTextConverter.showUnsupportedBlockMessage = function(type) {
+	var dialog = document.createElement("dialog");
+    dialog.textContent = "Cannot translate blocks to text. The block of type '" + type + "' is not yet supported in Venbrace. ";
+
+	var okButton = document.createElement("button");
+    okButton.textContent = "OK"
+    dialog.appendChild(okButton);
+    okButton.addEventListener("click", function() {
+        dialog.close();
+        dialog.remove();
+    })
+
+    document.body.appendChild(dialog);
+    dialog.showModal(); 
+}
 
 Blockly.BlocksToTextConverter.blockToText = function(block) {
     var root = Blockly.Xml.blockToDom(block);
     
     Blockly.BlocksToTextConverter.venbraceText = "";
-    Blockly.BlocksToTextConverter.translateBlock(root);
+    Blockly.BlocksToTextConverter.translateBlock(root, block);
 
     var venbraceBlockDom = document.createElement("block");
     venbraceBlockDom.setAttribute("type", Blockly.BlocksToTextConverter.type(root));
@@ -89,7 +105,7 @@ Blockly.BlocksToTextConverter.blockToText = function(block) {
 };
 
 
-Blockly.BlocksToTextConverter.translateBlock = function(element) {
+Blockly.BlocksToTextConverter.translateBlock = function(element, block) {
     var tagName = element.nodeName.toLowerCase();
     if(tagName === "block"){
         var type = element.getAttribute("type");
@@ -107,17 +123,18 @@ Blockly.BlocksToTextConverter.translateBlock = function(element) {
         }
         else{
             if(Blockly.BlocksToTextConverter.expressionBlocks.indexOf(type) !== -1){
-              Blockly.BlocksToTextConverter.translateExpressionBlock(element);
+            	Blockly.BlocksToTextConverter.translateExpressionBlock(element);
             } 
             else if(Blockly.BlocksToTextConverter.statementBlocks.indexOf(type) !== -1){
-              Blockly.BlocksToTextConverter.translateStatementBlock(element);
+            	Blockly.BlocksToTextConverter.translateStatementBlock(element);
             } 
             else if(Blockly.BlocksToTextConverter.declarationBlocks.indexOf(type) !== -1){
-              Blockly.BlocksToTextConverter.translateDeclarationBlock(element);
+            	Blockly.BlocksToTextConverter.translateDeclarationBlock(element);
             } 
             else{
-              console.log("Blockly.BlocksToTextConverter.translateBlock: I'm getting not getting an expression, statement, or top level block!! D=")
-            }
+            	console.log("Blockly.BlocksToTextConverter.translateBlock: I'm not getting an expression, statement, or top level block!! D=")
+				
+			}
         }
     }
 };
@@ -152,7 +169,8 @@ Blockly.BlocksToTextConverter.type = function(element){
         } else{
           //do nothing
           console.log("Blockly.BlocksToTextConverter.type: I'm getting not getting an expression, statement, or top level block!! D=")
-        }
+		  Blockly.BlocksToTextConverter.showUnsupportedBlockMessage(type);
+		}
       }
     }
   };
@@ -165,7 +183,8 @@ Blockly.BlocksToTextConverter.translateExpressionBlock = function(element) {
 	try {
 		if(Blockly.BlocksToTextConverter.atomicBlocks.indexOf(elementType) !== -1) {
 			Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
-		} else {
+		}
+		else {
 			Blockly.BlocksToTextConverter.venbraceText += '(';
 			Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
 			Blockly.BlocksToTextConverter.venbraceText += ')';
@@ -378,13 +397,11 @@ Blockly.BlocksToTextConverter.translate_math_single = function(element){
 	
 	var op = children.namedItem("OP").innerHTML.toLowerCase();
 	if (op === "root") {
-		op = 'square root';
+		op = 'sqrt';
 	} else if(op === "ln"){
 		op = 'log';
 	} else if(op === "exp"){
 		op = 'e^';
-	} else if(op === "exp"){
-		op = 'absolute';
 	}//no else case, op should remain the same for abs, round, ceiling, and floor
 
 	Blockly.BlocksToTextConverter.venbraceText += op + ' ';

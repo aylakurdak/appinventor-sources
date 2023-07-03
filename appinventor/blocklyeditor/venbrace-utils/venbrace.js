@@ -41,7 +41,7 @@ Blockly.Venbrace.convertToBlocks = function(codeBlock) {
         }
 
         message += parseObj.string.slice(startIndex,parseObj.errorAt-1);
-        message += "#FAILED HERE#-->";
+        message += "<---FAILED HERE--->";
         message += parseObj.string.slice(parseObj.errorAt-1,endIndex);
 
         console.log(message);
@@ -171,26 +171,4 @@ Blockly.Venbrace.handleAmbiguity = function(parseTrees, codeBlock) {
 Blockly.Venbrace.handleParsingError = function(codeBlock,message) {
     codeBlock.parseErrorMessage = message;
     codeBlock.workspace.getWarningHandler().checkErrors(codeBlock);
-    
-    // var dialog = document.createElement("dialog");
-    // dialog.className = "parse-dialog";
-    // dialog.textContent = "Cannot translate text to blocks.";
-    // if (message) {
-    //     dialog.textContent += message;
-    // }
-
-    // // TODO, give helpful error message
-    // // make this a warning/error on the block, not a popup
-
-    // var okButton = document.createElement("button");
-    // okButton.textContent = "OK"
-    // dialog.appendChild(okButton);
-    // okButton.addEventListener("click", function() {
-    //     dialog.close();
-    //     dialog.remove();
-    // })
-
-    // document.body.appendChild(dialog);
-    // dialog.showModal(); 
-
 }

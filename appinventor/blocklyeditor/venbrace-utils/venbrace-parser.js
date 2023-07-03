@@ -112,6 +112,7 @@ var KEYWORD_STR = {
     SQUARE_ROOT: ["square","root"],
     SQRT: "sqrt",
     ABSOLUTE: "absolute",
+    ABS: "abs",
     SET: "set",
     TO: "to",
     GET: "get",
@@ -243,6 +244,8 @@ var LIT = {
 // ****************************** EXPRESSIONS ****************************** //
 // ************************************************************************* //
 
+/* ~~ Helper Functions ~~ */
+
 // helper for prefixed expressions with one operand
 function prefixSingleExpr(prefixParser, exprParser, nodeName) {
     return comprehension(
@@ -251,6 +254,51 @@ function prefixSingleExpr(prefixParser, exprParser, nodeName) {
         function(_, ex) { return [nodeName, ex]; }
     );
 }
+
+// leftAssoc(4,[['*',3],['/',2]]) => ['/',['*',4,3],2]
+function leftAssoc(first,rest) {
+    if (rest.length == 0) {
+        return first;
+    } 
+    else {
+        var op = rest[0][0];
+        var r2 = rest[0][1];
+
+        return leftAssoc([op, first, r2], rest.slice(1));
+    }
+}
+
+function arithLeftAssoc(first,rest) {
+    if (rest.length == 0) {
+        return first;
+    } 
+    else {
+        // var op = rest[0][0];
+        // var r2 = rest[0][1];
+        
+        // var l = [op, first, r2];
+        var l = first;
+        var collectingPlusTimes = false;
+        for (var i = 0; i < rest.length; i++) {
+            var op = rest[i][0];
+            var r2 = rest[i][1];
+            if ("+*".indexOf(op) != -1) {
+                if (collectingPlusTimes) {
+                    l.push(r2);
+                } else {
+                    collectingPlusTimes = true;
+                    l = [op, l, r2];
+                }
+            } else {
+                collectingPlusTimes = false;
+                l = [op, l, r2];
+            }
+        }
+        return l;
+        //return leftAssoc([op, first, r2], rest.slice(1));
+    }
+}
+
 
 /* ~~ Variables, Components, & Procedure Calls ~~ */
 
@@ -262,7 +310,6 @@ var getVar = comprehension(
     }
 );
 
-// can be expr or stmt // TODO - separate expr and stmt!!
 var procedureCallExpr = KEY.CALL.bind(function(_) {
     return comprehension(LIT.VARNAME, manyStar(expr), function(fname, args) {
         return ["call expr",fname,args];
@@ -361,26 +408,54 @@ var listExpr = lenientNode(includeUntyped(listExprTop));
 
 var bool = KEY.TRUE.or(KEY.FALSE);
 
-var notExpr = identity.bind(function(_) {
-    return prefixSingleExpr(KEY.NOT, logicExpr, "not");
-});
+// BROKEN
+// var logicCompare = identity.bind(function(_) {
+//     var operandParser = stringExprTop
+//         .or(listExprTop)
+//         .or(logicExpr)
+//         .or(mathExpr);
+//     var opParser = OP.EQ.or(OP.NEQ);
+//     return comprehension(
+//         expr,
+//         opParser,
+//         expr,
+//         function(r1,op,r2) {
+//             return ["logic" + op, r1, r2];
+//         }
+//     );
+// })
 
 // logicSimple := all logic operators except OR and AND
 var logicSimple = identity.bind(function(_) {
     return includeUntyped(bool
-        .or(notExpr)
+        //.or(notExpr)
         .or(isListEmpty)
         .or(logicPropertyGetter)
         .or(mathCompare)
+        //.or(logicCompare)
     ).or(bracedNode(logicExpr));
 })
+
+var notExpr = identity.bind(function(_) {
+    return comprehension(
+        manyStar(KEY.NOT),
+        logicSimple,
+        function(nots, operand) {
+            var r = operand;
+            for (var i = 0; i < nots.length; i++) {
+                r = ["not", r];
+            }
+            return r;
+        }
+    )
+});
 
 // logicTerm := logicSimple AND logicSimple
 var logicTerm = identity.bind(function(_) {
     return comprehension(
-        logicSimple,
+        notExpr,
         manyStar(KEY.AND.bind(function(_) {
-            return logicSimple.bind(function(r2) {
+            return notExpr.bind(function(r2) {
                 return result(["and", r2])
             })
         })),
@@ -414,16 +489,26 @@ var logicExprTop = logicExpr.bind(function(ex) {
 
 /* ~~ Math ~~ */
 
-var negExpr = identity.bind(function(_) {
-    return prefixSingleExpr(KEY.NEG, mathExpr, "neg");
+var comparisonOps = OP.EQ.or(OP.NEQ)
+    .or(OP.GTE).or(OP.GT)
+    .or(OP.LTE).or(OP.LT);
+
+var mathCompare = identity.bind(function(_) {
+    return comprehension(
+        mathExpr,
+        comparisonOps,
+        mathExpr,
+        function(ex1,op,ex2) {return [op,ex1,ex2];}
+    )
 });
+
 
 var sqrtExpr = identity.bind(function(_) {
     return prefixSingleExpr(KEY.SQUARE_ROOT.or(KEY.SQRT), mathExpr, "sqrt");
 });
 
 var absoluteExpr = identity.bind(function(_) {
-    return prefixSingleExpr(KEY.ABSOLUTE, mathExpr, "absolute");
+    return prefixSingleExpr(KEY.ABSOLUTE.or(KEY.ABS), mathExpr, "absolute");
 });
 
 var minMaxExpr = (KEY.MIN.or(KEY.MAX)).bind(function(op) {
@@ -443,39 +528,47 @@ var minMaxExpr = (KEY.MIN.or(KEY.MAX)).bind(function(op) {
     });
 });
 
-var comparisonOps = OP.EQ.or(OP.NEQ)
-    .or(OP.GTE).or(OP.GT)
-    .or(OP.LTE).or(OP.LT);
+var prefixMathExpr = identity.bind(function(_) {
+    return includeUntyped(
+        LIT.NUMBER
+        //.or(negExpr)
+        //.or(unaryMinusExpr)
+        .or(sqrtExpr)
+        .or(absoluteExpr)
+        .or(minMaxExpr)
+        .or(mathPropertyGetter)
+        .or(lengthOfList)
+        .or(strLen)
+    ).or(bracedNode(mathExpr));
+})
 
-var mathCompare = identity.bind(function(_) {
+var negExpr = identity.bind(function(_) {
     return comprehension(
-        mathExpr,
-        comparisonOps,
-        mathExpr,
-        function(ex1,op,ex2) {return [op,ex1,ex2];}
+        manyStar(KEY.NEG.or(OP.MINUS)),
+        prefixMathExpr,
+        function(negs, operand) {
+            var r = operand;
+            var negationCount = negs.length;
+            if (negs.length > 0 && negs[negs.length-1] === "-" && ! Array.isArray(operand)) { // if - and number => -num
+                r = "-" + r;
+                negationCount--;
+            } 
+            for (var i = 0; i < negationCount; i++) {
+                r = ["neg", r];
+            }
+            return r;
+        }
     )
 });
-
-// leftAssoc(4,[['*',3],['/',2]]) => ['/',['*',4,3],2]
-function leftAssoc(first,rest) {
-    if (rest.length == 0) {
-        return first;
-    } 
-    else {
-        var op = rest[0][0];
-        var r2 = rest[0][1];
-        return leftAssoc([op, first, r2], rest.slice(1));
-    }
-}
 
 // right associative
 var expo = identity.bind(function(_) {
     return comprehension(
-        prefixMathExpr.or(bracedNode(mathExpr)),
+        negExpr,
         OP.POWER,
         expo,
         function(r1,op,r2) {return [op,r1,r2]}
-    ).plus(prefixMathExpr).plus(bracedNode(mathExpr)); // plus not or
+    ).plus(negExpr); // plus not or
 })
 
 // Roughly: 
@@ -489,7 +582,7 @@ var term = identity.bind(function(_) {
                 return result([op, r2])
             })
         })),
-        leftAssoc
+        arithLeftAssoc
     )
 })
 
@@ -503,20 +596,9 @@ var mathExpr = identity.bind(function(_) {
                 return result([op, r2])
             })
         })),
-        leftAssoc
-    ).or(bracedNode(mathExpr))
+        arithLeftAssoc
+    )
 })
-
-var prefixMathExpr = includeUntyped(
-    LIT.NUMBER
-    .or(negExpr)
-    .or(sqrtExpr)
-    .or(absoluteExpr)
-    .or(minMaxExpr)
-    .or(mathPropertyGetter)
-    .or(lengthOfList)
-    .or(strLen)
-);
 
 /* ~~ All Expressions ~~ */
 
@@ -724,7 +806,11 @@ var parseTrees;
 if (type === "code_expr") {
     parseTrees = topParser(expr).parse(stringToParse);
 } else if (type === "code_stmt") {
-    parseTrees = topParser(stmt).parse(stringToParse);
+    //parseTrees = topParser(stmt).parse(stringToParse);
+    var multiStmtParser = stmts.bind(function(ss) {
+        return result(["stmtSuite"].concat(ss));
+    })
+    parseTrees = topParser(multiStmtParser).parse(stringToParse);
 } else if (type === "code_decl") {
     parseTrees = topParser(decl).parse(stringToParse);
 } else {

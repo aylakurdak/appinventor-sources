@@ -694,8 +694,17 @@ Blockly.BlocklyEditor.repositionNewlyGeneratedBlock = function(oldBlock, newBloc
       //if this block only has a next block but not a previous block, we do need to reposition
       //if this block did have a previous block, we don't need to reposition, but the above if
       //statement will take care of that, so we don't need to change the value of reposition here
+
+      // ayla: handles code block with multiple statements
+      var lastNewBlock = newBlock;
+      var next = newBlock.getNextBlock();
+      while (next) {
+        lastNewBlock = lastNewBlock.getNextBlock();
+        next = lastNewBlock.getNextBlock();
+      }
+
       var nextBlockConnection = oldBlock.nextConnection.targetConnection;
-      var newConnection = newBlock.nextConnection;
+      var newConnection = lastNewBlock.nextConnection;
       var nextBlock = oldBlock.nextConnection.targetBlock();
       nextBlock.unplug(false, false);
       newConnection.connect(nextBlockConnection);

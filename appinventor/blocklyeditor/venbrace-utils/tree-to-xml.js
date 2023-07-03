@@ -194,6 +194,8 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
       LTE = '<=',
       GT = '>',
       GTE = '>=',
+      LOGIC_EQ = 'logic=',
+      LOGIC_NEQ = 'logic!=',
       LIST = 'list',
       IF = 'ifStmt',
       STR = 'str',
@@ -212,13 +214,20 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
       AND = 'and',
       OR = 'or',
       WHILE = 'while',
-      FOR_EACH_IN_LIST = 'forEachInList';
+      FOR_EACH_IN_LIST = 'forEachInList',
+      
+      STMT_SUITE = 'stmtSuite'
+      ;
   
   var operatorToXml = {};
 
   operatorToXml[SLOT] = function() {
     return "";
   };
+
+  operatorToXml[STMT_SUITE] = function(children) {
+    return treeToXmlString(children[0], children.slice(1));
+  }
 
   /* ~~~~~~~~~ Math ~~~~~~~~~~ */
 
@@ -414,6 +423,30 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
     return logicOperator("OR", children);
   };
 
+  operatorToXml[LOGIC_EQ] = function(children) {
+    var childrenXml = valChildXml("A",children[0]) 
+      + valChildXml("B",children[1]);
+
+    return makeBlockXmlString(
+      "logic_compare",
+      childrenXml,
+      null,
+      [["OP","EQ"]]
+    )
+  };
+
+  operatorToXml[LOGIC_NEQ] = function(children) {
+    var childrenXml = valChildXml("A",children[0]) 
+      + valChildXml("B",children[1]);
+
+    return makeBlockXmlString(
+      "logic_compare",
+      childrenXml,
+      null,
+      [["OP","NEQ"]]
+    )
+  };
+
   /* ~~~~~~~~~ Variables ~~~~~~~~~~ */
 
   operatorToXml[VAR_GET] = function(varName) {
@@ -436,6 +469,7 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
         nextStmts
     );
   };
+
 
   /* ~~~~~~~~~ Controls ~~~~~~~~~~ */
 
