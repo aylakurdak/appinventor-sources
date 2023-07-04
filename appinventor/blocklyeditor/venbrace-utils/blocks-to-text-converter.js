@@ -31,7 +31,9 @@ Blockly.BlocksToTextConverter.statementBlocks = [
   ];
   
 Blockly.BlocksToTextConverter.declarationBlocks = [
-    "component_event"
+    "component_event",
+	"global_declaration",
+  	"procedures_defnoreturn", "procedures_defreturn"
 ];
 
 Blockly.BlocksToTextConverter.atomicBlocks = [
@@ -479,13 +481,14 @@ Blockly.BlocksToTextConverter.translate_lists_create_with = function(element){
 
 	var children = element.children;
 	var mutation = parseInt(element.firstElementChild.getAttribute("items"));
+	console.log("num in list: " + mutation)
 
 	for(var i=0; i<mutation; i++){
 		var valBlock= children.namedItem("ADD" + i);
-		if(valBlock){
+		//if(valBlock){
 			Blockly.BlocksToTextConverter.venbraceText += ' ';
 			Blockly.BlocksToTextConverter.translateChildExpression(valBlock);
-		}
+		//}
 	}
 };
 
@@ -527,7 +530,7 @@ Blockly.BlocksToTextConverter.translate_lexical_variable_set = function(element)
 Blockly.BlocksToTextConverter.translate_controls_if = function(element) {
 	var numElse = 0;
     var numElseIf = 0;
-    if (element.firstElementChild.nodeName === "MUTATION") {
+    if (element.firstElementChild && element.firstElementChild.nodeName === "MUTATION") {
         var mutation = element.firstElementChild;
         numElse = mutation.getAttribute("else");
 		numElse == null ? 0 : numElse;
@@ -623,6 +626,8 @@ Blockly.BlocksToTextConverter.translate_component_set_get = function(element){
 	}
 }
 
+/************************************* TOP LEVEL DECLARATIONS ****************************************/
+
 Blockly.BlocksToTextConverter.translate_component_event = function(element){
 	var children = element.children;
 	var componentName = children.namedItem("COMPONENT_SELECTOR").innerHTML;
@@ -637,4 +642,61 @@ Blockly.BlocksToTextConverter.translate_component_event = function(element){
 	var suite = children.namedItem("DO");
 
 	Blockly.BlocksToTextConverter.translateChildStatement(suite);
+}
+
+Blockly.BlocksToTextConverter.translate_global_declaration = function(element){
+	var children = element.children;
+	var varName = children.namedItem("NAME").innerHTML;
+	var valueItem = children.namedItem("VALUE");
+
+	Blockly.BlocksToTextConverter.venbraceText += 'initialize global ' + varName + ' to ';
+	Blockly.BlocksToTextConverter.translateChildExpression(valueItem);
+}
+
+Blockly.BlocksToTextConverter.translate_procedures_defnoreturn = function(element){
+	var children = element.children;
+	var procName = children.namedItem("NAME").innerHTML;
+	
+	Blockly.BlocksToTextConverter.venbraceText += 'to ' + procName + ' ';
+
+	var numParams = 0;
+	var mutations = Blockly.BlocksToTextConverter.getImmediateChildrenByTagName(element,"mutation");
+	if(mutations.length === 1){
+		numParams = mutations[0].childElementCount;
+	}else{
+		console.log("Blocks To Text Converter - translate_procedures_defnoreturn: something is wrong with mutations");
+	}
+
+	for(var i=0; i<numParams; i++){
+		var argName = children.namedItem("VAR"+i).innerHTML;
+		Blockly.BlocksToTextConverter.venbraceText += argName + ' ';
+	}
+
+	var suite = children.namedItem("STACK");
+	Blockly.BlocksToTextConverter.venbraceText += 'do ';
+	Blockly.BlocksToTextConverter.translateChildStatement(suite);
+}
+
+Blockly.BlocksToTextConverter.translate_procedures_defreturn = function(element){
+	var children = element.children;
+	var procName = children.namedItem("NAME").innerHTML;
+	
+	Blockly.BlocksToTextConverter.venbraceText += 'to ' + procName + ' ';
+
+	var numParams = 0;
+	var mutations = Blockly.BlocksToTextConverter.getImmediateChildrenByTagName(element,"mutation");
+	if(mutations.length === 1){
+		numParams = mutations[0].childElementCount;
+	}else{
+		console.log("Blocks To Text Converter - translate_procedures_defnoreturn: something is wrong with mutations");
+	}
+
+	for(var i=0; i<numParams; i++){
+		var argName = children.namedItem("VAR"+i).innerHTML;
+		Blockly.BlocksToTextConverter.venbraceText += argName + ' ';
+	}
+
+	var retValItem = children.namedItem("RETURN");
+	Blockly.BlocksToTextConverter.venbraceText += 'result ';
+	Blockly.BlocksToTextConverter.translateChildExpression(retValItem);
 }

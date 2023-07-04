@@ -148,7 +148,9 @@ var KEYWORD_STR = {
     WHILE: "while",
     TEST: "test",
     FOREACH: ["for", "each"],
-    IN: "in"
+    IN: "in",
+    RESULT: "result",
+    GLOBAL: "global"
 };
 
 // The tokenized version of the keywords - i.e. keyword parsers
@@ -304,8 +306,12 @@ function arithLeftAssoc(first,rest) {
 
 var getVar = comprehension(
     opt(KEY.GET),
+    opt(KEY.GLOBAL),
     lenientNode(LIT.VARNAME),
-    function(_,varName) {
+    function(_,global,varName) {
+        if (global === "global") {
+            varName = "global " + varName;
+        }
         return ['variable get', varName];
     }
 );
@@ -621,10 +627,14 @@ var exprs = manyPlus(expr);
 var varSetter = identity.bind(function(_) {
     return comprehension(
         KEY.SET,
+        opt(KEY.GLOBAL),
         LIT.VARNAME,
         opt(KEY.TO),
         expr,
-        function(_,varName,_,ex) {
+        function(_,global,varName,_,ex) {
+            if (global === "global") {
+                varName = "global " + varName;
+            }
             return ["variable set",varName,ex];
         }
     );
@@ -780,7 +790,45 @@ var eventHandler = comprehension(
     }
 )
 
-var decl = lenientNode(eventHandler);
+var procDef = comprehension(
+    KEY.TO,
+    LIT.VARNAME,
+    manyStar(LIT.VARNAME),
+    opt(KEY.DO.or(KEY.RESULT)),
+    function (_, procName, args, slotLabel) {
+        return [procName, args, slotLabel];
+    }
+).bind(function (rs) {
+    var procName = rs[0];
+    var args = rs[1];
+    var slotLabel = rs[2];
+
+    var bodyParser;
+    var nodeName;
+
+    if (slotLabel === "result") {
+        bodyParser = expr;
+        nodeName = "procDefReturn";
+    } else if (slotLabel === "do") {
+        bodyParser = stmts;
+        nodeName = "procDefNoReturn";
+    } else {
+        bodyParser = expr.bind(function (e) {
+            nodeName = "procDefReturn";
+            return result(e);
+        }).or(stmts.bind(function (ss) {
+            nodeName = "procDefNoReturn";
+            return result(ss);
+        }));
+    }
+
+    return bodyParser.bind(function (body) {
+        return result([nodeName, procName, args, body]);
+    })
+})
+
+var decl = lenientNode(eventHandler
+    .or(procDef));
 
 // ************************************************************************** //
 

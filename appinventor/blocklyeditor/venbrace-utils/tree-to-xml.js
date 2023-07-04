@@ -115,16 +115,35 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
     return xml;
   };
   
+  // Local variable and procedure definitions must give a "localVarFlag": true, 
+  // "localVarName" (e.g. arg, localname), and "localVarList" since their mutations have a unique structure.
   var mutationsXmlString = function(mutations) {
-    var xml = "";
-    if (mutations) {
-      xml = "<mutation "
-      for (var mutationName in mutations) {
+
+    if (mutations == null) {
+      return "";
+    }
+
+    var xml = "<mutation ";
+
+    for (var mutationName in mutations) {
+      if (["localVarFlag","localVarName","localVarList"].indexOf(mutationName) == -1) {
         xml += mutationName + '="' + mutations[mutationName] + '" ';
       }
-      xml += "></mutation>";
     }
+
+    xml += ">"
+
+    if (mutations["localVarFlag"]) {
+      var localVarName = mutations["localVarName"];
+      var localVarList = mutations["localVarList"];
+
+      for (var i = 0; i < localVarList.length; i++) {
+        xml += "<" + localVarName + ' name="' + mutations[i] + '"></' + localVarName + '>';
+      }
+    }
+    xml += "</mutation>";
     return xml;
+
   };
   
   var fieldXmlString = function(fields) {
@@ -215,6 +234,8 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
       OR = 'or',
       WHILE = 'while',
       FOR_EACH_IN_LIST = 'forEachInList',
+      PROC_DEF_RETURN = "procDefReturn",
+      PROC_DEF_NO_RETURN = "procDefNoReturn",
       
       STMT_SUITE = 'stmtSuite'
       ;
@@ -571,6 +592,53 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
 
   operatorToXml[CALL_NORETURN] = function(children,nextStmts) {
     return procCall(children,"noreturn",nextStmts);
+  }
+
+  /* ~~~~~~~~~ Procedure Definitions ~~~~~~~~~~ */
+
+  function procDef(children,isReturn) {
+    var procName = children[0];
+    var args = children[1];
+    var body = children[2];
+
+    var blockName;
+    var childrenXml;
+    if (isReturn) {
+      blockName = "procedures_defreturn";
+      childrenXml = valChildXml('RETURN', body);
+    } 
+    else {
+      blockName = "procedures_defnoreturn";
+      childrenXml = stmtChildXml('STACK', body);
+    }
+    
+    var fields = [["NAME",procName]];
+    for (var i = 0; i < args.length; i++ ) {
+      var argName = args[i];
+      fields.push(["VAR"+i, argName]);
+    }
+
+    var mutations = {
+      "localVarFlag": true,
+      "localVarName": "arg",
+      "localVarList": args
+    }
+
+    return makeBlockXmlString(
+      blockName,
+      childrenXml,
+      mutations,
+      fields
+    );
+
+  }
+
+  operatorToXml[PROC_DEF_RETURN] = function(children) {
+    return procDef(children,true);
+  }
+
+  operatorToXml[PROC_DEF_NO_RETURN] = function(children) {
+    return procDef(children,false);
   }
 
   /* ~~~~~~~~~ Components ~~~~~~~~~~ */

@@ -462,6 +462,7 @@ Blockly.Blocks['procedures_defnoreturn'] = {
   customContextMenu: function (options) {
     Blockly.FieldParameterFlydown.addHorizontalVerticalOption(this, options);
     Blockly.BlocklyEditor.addPngExportOption(this, options);
+    Blockly.BlocklyEditor.addPrintXMLOption(this,options);
     Blockly.BlocklyEditor.addConvertToVenbraceOption(this, options);
   },
   getParameters: function() {

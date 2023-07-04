@@ -12,7 +12,7 @@ Blockly.Blocks["code_decl"] = {
             .appendField("code decl")
             .appendField(new Blockly.FieldTextInput(''), 'CODE');
         this.errors = [{name:"checkParseError"}];
-        console.log("")
+        console.log(" ")
     },
     typeblock: [{translatedName: "code declaration"}],
     parseErrorMessage: false
