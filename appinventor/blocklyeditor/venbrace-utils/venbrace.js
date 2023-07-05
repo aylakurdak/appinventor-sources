@@ -74,10 +74,45 @@ Blockly.Venbrace.convertToBlocks = function(codeBlock) {
 }
 
 Blockly.Venbrace.xmlstrToBlock = function(xmlstr, codeBlock) {
+    function setNewBlocksToExternalInputs(block) {
+        var childBlocks = block.getChildren();
+    
+        var leafTypes = [
+            "math_number",
+            "logic_boolean",
+            "logic_false",
+            "text",
+            "lexical_variable_get"
+        ]
+    
+        var allLeaves = true;
+
+        console.log("In block " + block.type);
+    
+        for (var i = 0; i < childBlocks.length; i++) {
+            var child = childBlocks[i];
+            
+            console.log("Child " + i + ": " + child.type);
+    
+            if (leafTypes.indexOf(child.type) == -1) {
+                console.log("Not a leaf");
+                allLeaves = false;
+                setNewBlocksToExternalInputs(child);
+            }
+        }
+
+        if (block.getInputsInline() && !allLeaves) {
+            console.log("Setting External");
+            block.setInputsInline(false);
+        }
+    }
+
+
     try {
         var blockDom = Blockly.Xml.textToDom(xmlstr);
         var xml = blockDom.firstElementChild; // extra step translating from xml->block due to Blockly weirdness
         var newBlock = /** @type {Blockly.BlockSvg} */ Blockly.Xml.domToBlock(xml, codeBlock.workspace);
+        setNewBlocksToExternalInputs(newBlock);
         return newBlock;
 
     }
@@ -109,10 +144,11 @@ Blockly.Venbrace.handleAmbiguity = function(parseTrees, codeBlock) {
             var xmlstr = xmlstrObj.str;
             var block = Blockly.Venbrace.xmlstrToBlock(xmlstr, codeBlock);
 
-            if (!block) { // this shouldn't happen
-                continue;
-            }
-            //numOptions++;
+            // if (!block) { // this shouldn't happen
+
+            //     continue;
+            // }
+            // // numOptions++;
 
             block.moveBy(5, 5); // random amount, this is necessary for generating the uri due to some weirdness in svgAsDataUri (needs translate attribute which only exists if the block is not at the origin)
             var uri = Blockly.getDataUri(block);
