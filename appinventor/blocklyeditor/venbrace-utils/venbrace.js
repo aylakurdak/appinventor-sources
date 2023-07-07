@@ -74,6 +74,7 @@ Blockly.Venbrace.convertToBlocks = function(codeBlock) {
 }
 
 Blockly.Venbrace.xmlstrToBlock = function(xmlstr, codeBlock) {
+
     function setNewBlocksToExternalInputs(block) {
         var childBlocks = block.getChildren();
     
@@ -87,22 +88,22 @@ Blockly.Venbrace.xmlstrToBlock = function(xmlstr, codeBlock) {
     
         var allLeaves = true;
 
-        console.log("In block " + block.type);
+        // console.log("In block " + block.type);
     
         for (var i = 0; i < childBlocks.length; i++) {
             var child = childBlocks[i];
             
-            console.log("Child " + i + ": " + child.type);
+            // console.log("Child " + i + ": " + child.type);
     
             if (leafTypes.indexOf(child.type) == -1) {
-                console.log("Not a leaf");
+                // console.log("Not a leaf");
                 allLeaves = false;
                 setNewBlocksToExternalInputs(child);
             }
         }
 
-        if (block.getInputsInline() && !allLeaves) {
-            console.log("Setting External");
+        if (block.getInputsInline() && !allLeaves) { // && block.width > 400
+            // console.log("Setting External");
             block.setInputsInline(false);
         }
     }

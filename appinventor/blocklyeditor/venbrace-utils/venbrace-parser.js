@@ -150,7 +150,11 @@ var KEYWORD_STR = {
     FOREACH: ["for", "each"],
     IN: "in",
     RESULT: "result",
-    GLOBAL: "global"
+    GLOBAL: "global",
+    CODE: "code",
+    EXPR: "expr",
+    STMT: "stmt",
+    DECL: "decl"
 };
 
 // The tokenized version of the keywords - i.e. keyword parsers
@@ -234,7 +238,7 @@ var lit = function(p) {
 
 var LIT = {
     VARNAME: lit(
-        letter.seq(manyStar(alphanum,true))).first().bind(function(v) {
+        letter.seq(manyStar(alphanum.or(character("_")),true))).first().bind(function(v) {
             return isNotReserved(v) ? result(v) : zero;
         }
     ), // also works for components and function calls
@@ -301,6 +305,24 @@ function arithLeftAssoc(first,rest) {
     }
 }
 
+/* ~~ Code Blocks ~~ */
+
+var codeExpr = comprehension(
+    KEY.CODE.seq(KEY.EXPR),
+    manyStar(item,true),
+    function(_,content) {
+        return ["code expr", content]
+    }
+)
+
+var codeStmt = comprehension(
+    KEY.CODE.seq(KEY.STMT),
+    manyStar(item,true),
+    function(_,content) {
+        return ["code stmt", content]
+    }
+)
+
 
 /* ~~ Variables, Components, & Procedure Calls ~~ */
 
@@ -352,7 +374,7 @@ var stringPropertyGetter = getComponent(stringProperty);
 
 // vars and procedure calls can be any type, so should be allowed in any type of expression
 function includeUntyped(p) {
-    return p.or(procedureCallExpr).or(getVar).or(emptySlot);
+    return p.or(procedureCallExpr).or(getVar).or(emptySlot).or(codeExpr);
 }
 
 /* ~~ Strings ~~ */
@@ -752,6 +774,7 @@ var stmtBase = lenientNode(
     .or(whileLoop)
     .or(forEachInList)
     .or(procedureCallStmt)
+    .or(codeStmt)
 );
 
 var stmtNoIf = stmtBase.or(lenientNode(emptySlot));

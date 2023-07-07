@@ -236,6 +236,8 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
       FOR_EACH_IN_LIST = 'forEachInList',
       PROC_DEF_RETURN = "procDefReturn",
       PROC_DEF_NO_RETURN = "procDefNoReturn",
+      CODE_EXPR = "code expr",
+      CODE_STMT = "code stmt",
       
       STMT_SUITE = 'stmtSuite'
       ;
@@ -730,6 +732,37 @@ Blockly.ParseTreeToXml.makeXmlString = function(parseTree, codeBlock) {
     );
 
   }
+  
+  /* ~~~~~~~~~ Code Blocks ~~~~~~~~~~ */
+  operatorToXml[CODE_EXPR] = function(content) {
+    return makeBlockXmlString(
+      "code_expr",
+      "",
+      null,
+      [["CODE",content]]
+    )
+  }
+
+  operatorToXml[CODE_STMT] = function(content,nextStmts) {
+    return makeBlockXmlString(
+      "code_stmt",
+      "",
+      null,
+      [["CODE",content]],
+      nextStmts
+    )
+  }
+
+  operatorToXml[CODE_STMT] = function(content,nextStmts) {
+    return makeBlockXmlString(
+      "code_stmt",
+      "",
+      null,
+      [["CODE",content]],
+      nextStmts
+    )
+  }
+
 
 
   /* ~~~~~~~~~ Top level treeToXmlString call ~~~~~~~~~~ */

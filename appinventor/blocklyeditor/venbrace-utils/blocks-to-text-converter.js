@@ -18,7 +18,8 @@ Blockly.BlocksToTextConverter.expressionBlocks = [
     "math_add", "math_multiply", "math_subtract", "math_division", "math_power", "math_divide", "math_on_list",
     "math_single", "math_abs", "math_neg", "math_round", "math_ceiling", "math_floor", "math_compare",
     "procedures_callreturn",
-    "text", "text_length"
+    "text", "text_length",
+	"code_expr"
    ];
   
 Blockly.BlocksToTextConverter.statementBlocks = [
@@ -32,7 +33,7 @@ Blockly.BlocksToTextConverter.statementBlocks = [
   
 Blockly.BlocksToTextConverter.declarationBlocks = [
     "component_event",
-	"global_declaration",
+	//"global_declaration", //comment back in when text->block is implemented
   	"procedures_defnoreturn", "procedures_defreturn"
 ];
 
@@ -182,7 +183,7 @@ Blockly.BlocksToTextConverter.type = function(element){
 Blockly.BlocksToTextConverter.translateExpressionBlock = function(element) {
     var elementType = element.getAttribute("type");
 
-	try {
+	if (Blockly.BlocksToTextConverter.expressionBlocks.indexOf(elementType) !== -1) {
 		if(Blockly.BlocksToTextConverter.atomicBlocks.indexOf(elementType) !== -1) {
 			Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
 		}
@@ -191,11 +192,24 @@ Blockly.BlocksToTextConverter.translateExpressionBlock = function(element) {
 			Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
 			Blockly.BlocksToTextConverter.venbraceText += ')';
 		}
-	} catch (error) {
-		console.log("Tried to translate a type of block that is not yet implemented.");
-		console.log("Type",elementType);
-		console.log(error);
+	} else {
+		Blockly.BlocksToTextConverter.showUnsupportedBlockMessage(elementType);
 	}
+
+	// try {
+	// 	if(Blockly.BlocksToTextConverter.atomicBlocks.indexOf(elementType) !== -1) {
+	// 		Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
+	// 	}
+	// 	else {
+	// 		Blockly.BlocksToTextConverter.venbraceText += '(';
+	// 		Blockly.BlocksToTextConverter["translate_" + elementType].call(this, element);
+	// 		Blockly.BlocksToTextConverter.venbraceText += ')';
+	// 	}
+	// } catch (error) {
+	// 	console.log("Tried to translate a type of block that is not yet implemented.");
+	// 	console.log("Type",elementType);
+	// 	throw(error);
+	// }
 	
 };
 
@@ -240,6 +254,15 @@ Blockly.BlocksToTextConverter.translateDeclarationBlock = function(element){
 
 
 /************************************* EXPRESSIONS ****************************************/
+
+Blockly.BlocksToTextConverter.translate_code_expr = function(element){
+	Blockly.BlocksToTextConverter.venbraceText += 'code expr';
+	
+	var child = element.firstElementChild;
+	var expression_text = child.innerHTML;
+
+	Blockly.BlocksToTextConverter.venbraceText += ' ' + expression_text;
+}
 
 /**** MATH EXPRESIONS ****/
 
@@ -526,6 +549,15 @@ Blockly.BlocksToTextConverter.translate_lexical_variable_set = function(element)
 }
 
 /************************************* STATEMENTS ****************************************/
+
+Blockly.BlocksToTextConverter.translate_code_stmt = function(element){
+	Blockly.BlocksToTextConverter.venbraceText += 'code stmt';
+	
+	var child = element.firstElementChild;
+	var stmt_text = child.innerHTML;
+
+	Blockly.BlocksToTextConverter.venbraceText += ' ' + stmt_text;
+}
 
 Blockly.BlocksToTextConverter.translate_controls_if = function(element) {
 	var numElse = 0;
