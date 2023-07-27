@@ -147,7 +147,8 @@ var KEYWORD_STR = {
     LENGTH: "length",
     WHILE: "while",
     TEST: "test",
-    FOREACH: ["for", "each"],
+    FOR: "for",
+    EACH: "each",
     IN: "in",
     RESULT: "result",
     GLOBAL: "global",
@@ -203,8 +204,18 @@ var bracedNode = function(nodeParser) {
 /**
  * A node surrounded by zero or more braces.
  */
-var lenientNode = function(nodeParser) {
+var lenientBrace = function(nodeParser) {
     return nodeParser.or(bracedNode(nodeParser));
+}
+
+/**
+ * Same as lenientBrace but uses nondeterministic plus() instead of or().
+ * Useful for arg lists that are permitted to be braced. E.g. max(1 2 3)
+ * 
+ * TODO: Recognizes max(1 2 3) but not max((1 2 3)). Should recognize both.
+ */
+var lenientBracePlus = function(p) {
+    return p.plus(bracedNode(p));
 }
 
 /* ~~ Symbols ~~ */
@@ -223,7 +234,7 @@ var OP = {
     GTE: sym(">="),
     LT: sym("<"),
     LTE: sym("<="),
-    EQ: sym("="),
+    EQ: sym("==").or(sym("=")),
     NEQ: sym("!=")
 };
 
@@ -238,8 +249,9 @@ var lit = function(p) {
 
 var LIT = {
     VARNAME: lit(
-        letter.seq(manyStar(alphanum.or(character("_")),true))).first().bind(function(v) {
+        letter.or(character("_")).seq(manyStar(alphanum.or(character("_")),true))).first().bind(function(v) {
             return isNotReserved(v) ? result(v) : zero;
+            // currently keywords are reserved, but this should be changed
         }
     ), // also works for components and function calls
 
@@ -329,7 +341,7 @@ var codeStmt = comprehension(
 var getVar = comprehension(
     opt(KEY.GET),
     opt(KEY.GLOBAL),
-    lenientNode(LIT.VARNAME),
+    lenientBrace(LIT.VARNAME),
     function(_,global,varName) {
         if (global === "global") {
             varName = "global " + varName;
@@ -339,7 +351,7 @@ var getVar = comprehension(
 );
 
 var procedureCallExpr = KEY.CALL.bind(function(_) {
-    return comprehension(LIT.VARNAME, manyStar(expr), function(fname, args) {
+    return comprehension(LIT.VARNAME, lenientBracePlus(manyStar(expr)), function(fname, args) {
         return ["call expr",fname,args];
     })
 }); 
@@ -395,16 +407,16 @@ var strLen = identity.bind(function(_) {
 // .Text can also be math, which causes conflict
 var stringExprTop = string//.or(stringPropertyGetter);
 
-var stringExpr = lenientNode(includeUntyped(stringExprTop.or(stringPropertyGetter)));
+var stringExpr = lenientBrace(includeUntyped(stringExprTop.or(stringPropertyGetter)));
 
 /* ~~ Lists ~~ */
 
 var createListExpr = KEY.LIST.or(KEY.CREATE_EMPTY_LIST).or(KEY.MAKE_A_LIST).bind(function(prefix) {
-    var argparser;
+    var argParser;
     if (prefix === "list") {    // "list" can have any number of elements
-        argparser = optExprs;
+        argParser = optExprs;
     } else if (prefix === "makealist") {  // "make a list" must have at least one element
-        argparser = comprehension(
+        argParser = comprehension(
             opt(expr),
             optExprs,
             function(expr1,rest) {
@@ -412,9 +424,9 @@ var createListExpr = KEY.LIST.or(KEY.CREATE_EMPTY_LIST).or(KEY.MAKE_A_LIST).bind
             }
         );
     } else {                    // "create empty list" has no elements
-        argparser = identity;
+        argParser = identity;
     }
-    return argparser.bind(function(elts) {
+    return lenientBracePlus(argParser).bind(function(elts) {
         return result(["list"].concat(elts));
     });
 });
@@ -430,7 +442,7 @@ var lengthOfList = identity.bind(function(_) {
 
 var listExprTop = createListExpr;
 
-var listExpr = lenientNode(includeUntyped(listExprTop));
+var listExpr = lenientBrace(includeUntyped(listExprTop));
 
 /* ~~ Logic ~~ */
 
@@ -526,7 +538,9 @@ var mathCompare = identity.bind(function(_) {
         mathExpr,
         comparisonOps,
         mathExpr,
-        function(ex1,op,ex2) {return [op,ex1,ex2];}
+        function(ex1,op,ex2) {
+            if (op === "==") {op = "="} //james while john had had "had" had had "had had"
+            return [op,ex1,ex2];}
     )
 });
 
@@ -541,7 +555,7 @@ var absoluteExpr = identity.bind(function(_) {
 
 var minMaxExpr = (KEY.MIN.or(KEY.MAX)).bind(function(op) {
     // having two optional expressions before manyStar forces it to take at least 2 arguments if it can
-    return comprehension(
+    var argParser = comprehension(
         opt(mathExpr), 
         opt(mathExpr), 
         manyStar(mathExpr),
@@ -551,9 +565,25 @@ var minMaxExpr = (KEY.MIN.or(KEY.MAX)).bind(function(op) {
             args = xs.length > 0 ? args.concat(xs) : args;
             return args 
         }
-    ).bind(function(args) {
+    );
+
+    return lenientBracePlus(argParser).bind(function(args) {
         return result([op].concat(args));
     });
+
+    // return comprehension(
+    //     opt(mathExpr), 
+    //     opt(mathExpr), 
+    //     manyStar(mathExpr),
+    //     function(x1,x2,xs) {
+    //         var args = x1.length > 0 ? [].concat([x1]) : [];
+    //         args = x2.length > 0 ? args.concat([x2]) : args;
+    //         args = xs.length > 0 ? args.concat(xs) : args;
+    //         return args 
+    //     }
+    // ).bind(function(args) {
+    //     return result([op].concat(args));
+    // });
 });
 
 var prefixMathExpr = identity.bind(function(_) {
@@ -630,7 +660,7 @@ var mathExpr = identity.bind(function(_) {
 
 /* ~~ All Expressions ~~ */
 
-var expr = lenientNode(
+var expr = lenientBrace(
     stringExprTop
     .or(listExprTop)
     .or(logicExprTop)  
@@ -685,7 +715,7 @@ var setter = stringPropertySetter
     .or(varSetter);
 
 var procedureCallStmt = KEY.CALL.bind(function(_) {
-    return comprehension(LIT.VARNAME, manyStar(expr), function(fname, args) {
+    return comprehension(LIT.VARNAME, lenientBracePlus(manyStar(expr)), function(fname, args) {
         return ["call stmt",fname,args];
     })
 }); 
@@ -752,10 +782,10 @@ var whileLoop = identity.bind(function(_) {
 
 var forEachInList = identity.bind(function(_) {
     return comprehension(
-        KEY.FOREACH,
+        KEY.FOR.seq(opt(KEY.EACH)),
         LIT.VARNAME,
         KEY.IN,
-        KEY.LIST,
+        opt(KEY.LIST),
         listExpr,
         stmtSuiteLenient(KEY.DO),
         function(_,itemVar,_,_,list,stmts) {
@@ -769,7 +799,7 @@ var forEachInList = identity.bind(function(_) {
 // all statements that don't need to be handled separately
 // excludes empty slots since a statement suite should not have empty slots
 // excludes ifStmt which needs special handling in else clauses to avoid else if collision
-var stmtBase = lenientNode(
+var stmtBase = lenientBrace(
     setter
     .or(whileLoop)
     .or(forEachInList)
@@ -777,22 +807,22 @@ var stmtBase = lenientNode(
     .or(codeStmt)
 );
 
-var stmtNoIf = stmtBase.or(lenientNode(emptySlot));
-var stmtNoEmpty = stmtBase.or(lenientNode(ifStmt));
+var stmtNoIf = stmtBase.or(lenientBrace(emptySlot));
+var stmtNoEmpty = stmtBase.or(lenientBrace(ifStmt));
 
-var stmt = stmtBase.or(lenientNode(
+var stmt = stmtBase.or(lenientBrace(
     ifStmt
     .or(emptySlot)
 ));
 
-var stmts = manyPlus(stmtNoEmpty).or(lenientNode(emptySlot).bind(function(empty) {
+var stmts = manyPlus(stmtNoEmpty).or(lenientBrace(emptySlot).bind(function(empty) {
     return result([empty]);
 }));
 var optStmts = stmts.plus(identity);
 
 var stmtSuiteLenient = function(leadIn) {
-    return lenientNode(opt(leadIn).bind(function(_) {
-        return lenientNode(stmts);
+    return lenientBrace(opt(leadIn).bind(function(_) {
+        return lenientBrace(stmts);
     }));
 }
 
@@ -803,20 +833,40 @@ var stmtSuiteLenient = function(leadIn) {
 var event = KEY.CLICK
     .or(KEY.CHANGED);
 
-var eventHandler = comprehension(
-    KEY.WHEN,
-    LIT.VARNAME,
-    event,
-    stmtSuiteLenient(KEY.DO),
-    function(_,component,event,stmts) {
-        return ["when",component,event,stmts];
-    }
-)
+// var eventHandler = comprehension(
+//     KEY.WHEN,
+//     LIT.VARNAME,
+//     event,
+//     stmtSuiteLenient(KEY.DO),
+//     function(_,component,event,stmts) {
+//         return ["when",component,event,stmts];
+//     }
+// )
+
+var eventHandler = KEY.WHEN.bind(function(_) {
+    var componentEventParser = comprehension(
+        LIT.VARNAME,
+        event,
+        function(component, event) {
+            return [component,event];
+        }
+    )
+
+    return comprehension(
+        lenientBrace(componentEventParser),
+        stmtSuiteLenient(KEY.DO),
+        function(componentEventPair,stmts) {
+            var component = componentEventPair[0];
+            var event = componentEventPair[1];
+            return ["when",component,event,stmts];
+        }
+    )
+})
 
 var procDef = comprehension(
     KEY.TO,
     LIT.VARNAME,
-    manyStar(LIT.VARNAME),
+    lenientBracePlus(manyStar(LIT.VARNAME)),
     opt(KEY.DO.or(KEY.RESULT)),
     function (_, procName, args, slotLabel) {
         return [procName, args, slotLabel];
@@ -839,18 +889,21 @@ var procDef = comprehension(
         bodyParser = expr.bind(function (e) {
             nodeName = "procDefReturn";
             return result(e);
-        }).or(stmts.bind(function (ss) {
+        }).plus(stmts.bind(function (ss) { // could be ambiguous if no do/result and empty body
             nodeName = "procDefNoReturn";
             return result(ss);
         }));
     }
 
     return bodyParser.bind(function (body) {
+        if (body[0] === "emptySlot") { // handle ambiguous do/result when body is empty
+            return result(["procDefReturn", procName, args, body]);
+        }
         return result([nodeName, procName, args, body]);
     })
 })
 
-var decl = lenientNode(eventHandler
+var decl = lenientBrace(eventHandler
     .or(procDef));
 
 // ************************************************************************** //
