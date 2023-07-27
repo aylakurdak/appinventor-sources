@@ -246,8 +246,9 @@ Blockly.BlocklyEditor.addConvertToVenbraceOption = function(myBlock, options) {
   convertToVenbrace.text = "Convert to Venbrace";
   convertToVenbrace.callback = function() {
     var codeBlock = Blockly.BlocksToTextConverter.blockToText(myBlock);
-    Blockly.BlocklyEditor.repositionNewlyGeneratedBlock(myBlock,codeBlock);
-    myBlock.dispose(true, false);
+    // Blockly.BlocklyEditor.repositionNewlyGeneratedBlock(myBlock,codeBlock);
+    // myBlock.dispose(true, false);
+    Blockly.Venbrace.createAndDisposeBlocks(codeBlock,myBlock);
   };
   options.push(convertToVenbrace)
 };

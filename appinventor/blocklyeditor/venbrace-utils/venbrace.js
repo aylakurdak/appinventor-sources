@@ -19,6 +19,8 @@ Blockly.Venbrace = {};
 Blockly.Venbrace.convertToBlocks = function(codeBlock) {
     var parseObj = Blockly.VenbraceParser.parseCodeBlock(codeBlock);
 
+    codeBlock.parseErrorMessage = false;
+
     /*  case 1: syntax error, parse failed */
     if (!parseObj.success) { 
         var message = "Could not parse the code. You either \n\
@@ -62,15 +64,26 @@ Blockly.Venbrace.convertToBlocks = function(codeBlock) {
         
         var xmlstr = xmlstrObj.str;
         var newBlock = Blockly.Venbrace.xmlstrToBlock(xmlstr,codeBlock);
+        this.createAndDisposeBlocks(newBlock,codeBlock);
+
         //if (newBlock) {
-        Blockly.BlocklyEditor.repositionNewlyGeneratedBlock(codeBlock,newBlock);
-        codeBlock.dispose(true, false);
+        // Blockly.BlocklyEditor.repositionNewlyGeneratedBlock(codeBlock,newBlock);
+        // codeBlock.dispose(true, false);
+        // newBlock.initSvg();
         //}
     }
     /* case 3: parse succeeded, ambiguous */
     else {
         Blockly.Venbrace.handleAmbiguity(parseTrees, codeBlock);
     }
+}
+
+Blockly.Venbrace.createAndDisposeBlocks = function(newBlock, oldBlock) {
+    Blockly.Events.setGroup(true);
+    Blockly.BlocklyEditor.repositionNewlyGeneratedBlock(oldBlock,newBlock);
+    oldBlock.dispose(true, false);
+    newBlock.initSvg();
+    Blockly.Events.setGroup(false);
 }
 
 Blockly.Venbrace.xmlstrToBlock = function(xmlstr, codeBlock) {
@@ -145,12 +158,6 @@ Blockly.Venbrace.handleAmbiguity = function(parseTrees, codeBlock) {
             var xmlstr = xmlstrObj.str;
             var block = Blockly.Venbrace.xmlstrToBlock(xmlstr, codeBlock);
 
-            // if (!block) { // this shouldn't happen
-
-            //     continue;
-            // }
-            // // numOptions++;
-
             block.moveBy(5, 5); // random amount, this is necessary for generating the uri due to some weirdness in svgAsDataUri (needs translate attribute which only exists if the block is not at the origin)
             var uri = Blockly.getDataUri(block);
             uris.push(uri);
@@ -168,8 +175,11 @@ Blockly.Venbrace.handleAmbiguity = function(parseTrees, codeBlock) {
             btn.addEventListener("click", function() {
                 var xmlstr = this.firstElementChild.alt;
                 var newBlock = Blockly.Venbrace.xmlstrToBlock(xmlstr, codeBlock);
-                Blockly.BlocklyEditor.repositionNewlyGeneratedBlock(codeBlock,newBlock);
-                codeBlock.dispose(false);
+                // Blockly.BlocklyEditor.repositionNewlyGeneratedBlock(codeBlock,newBlock);
+                // codeBlock.dispose(false);
+                // newBlock.initSvg();
+                Blockly.Venbrace.createAndDisposeBlocks(newBlock,codeBlock);
+
                 dialog.close();
                 dialog.remove();
 
