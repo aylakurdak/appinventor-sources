@@ -237,8 +237,8 @@ Blockly.BlocksToTextConverter.translateChildStatement = function(element){
     } else { //if element is not null (make sure it's not the empty statement)
         var curBlock = element.firstElementChild; //this should be the first statement block
         Blockly.BlocksToTextConverter.translateStatementBlock(curBlock);
-        var next = curBlock.lastElementChild.nodeName === "NEXT" ? curBlock.lastElementChild : false;
-        if(next){
+        var next = curBlock.lastElementChild && curBlock.lastElementChild.nodeName === "NEXT" ? curBlock.lastElementChild : false;
+		if(next){
             Blockly.BlocksToTextConverter.translateChildStatement(next);
         }
     }
